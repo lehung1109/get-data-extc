@@ -38,6 +38,7 @@ Notes:
 
 - `bun run crawl:links` requires the `BASE_URL` environment variable.
 - Crawler commands use `EXAM_CODE` when provided; default is `gh-300`.
+- `START_PAGE`, `END_PAGE`, and `MAX_LINKS` are optional for `bun run crawl:links`; defaults are `1`, `600`, and `113`.
 - `DATA_DIR` defaults to `data` at the repository root; the web app sets `../../data` relative to `apps/web`.
 - `bun run crawl:questions` purges `data/<examCode>/questions.json` first.
 - Do not run live crawler commands casually during code changes.

@@ -5,11 +5,11 @@ import { DEFAULT_EXAM_CODE, getLinksFilePath, normalizeExamCode } from '../lib/e
 import { delay, fetchHtmlWithRetry, isCloudflareChallenge } from '../lib/http';
 import { writeJsonFileAtomic } from '../lib/json-file';
 
-const START_PAGE = 1;
-const END_PAGE = 600;
+export const DEFAULT_START_PAGE = 1;
+export const DEFAULT_END_PAGE = 600;
 const DELAY_BETWEEN_PAGES_MS = 2000;
 const EMPTY_PAGE_LIMIT = 2;
-const MAX_LINKS = 113;
+export const DEFAULT_MAX_LINKS = 113;
 
 type PageData = {
     discussionCount: number;
@@ -33,11 +33,11 @@ export type CrawlPagesOptions = {
 
 export async function crawlPages(options: CrawlPagesOptions) {
     const examCode = normalizeExamCode(options.examCode ?? DEFAULT_EXAM_CODE);
-    const startPage = options.startPage ?? START_PAGE;
-    const endPage = options.endPage ?? END_PAGE;
+    const startPage = options.startPage ?? DEFAULT_START_PAGE;
+    const endPage = options.endPage ?? DEFAULT_END_PAGE;
     const delayBetweenPagesMs = options.delayBetweenPagesMs ?? DELAY_BETWEEN_PAGES_MS;
     const emptyPageLimit = options.emptyPageLimit ?? EMPTY_PAGE_LIMIT;
-    const maxLinks = options.maxLinks ?? MAX_LINKS;
+    const maxLinks = options.maxLinks ?? DEFAULT_MAX_LINKS;
     const logger = options.logger ?? console;
     const fetchPageDataFn = options.fetchPageDataFn
         ?? ((pageNumber, baseUrl, nextExamCode) => fetchPageData(
@@ -130,7 +130,7 @@ export function getNextEmptyPageCount(emptyPages: number, discussionCount: numbe
     return discussionCount === 0 ? emptyPages + 1 : 0;
 }
 
-export function addLinksUntilMax(collectedLinks: Set<string>, links: string[], maxLinks = MAX_LINKS) {
+export function addLinksUntilMax(collectedLinks: Set<string>, links: string[], maxLinks = DEFAULT_MAX_LINKS) {
     for (const link of links) {
         if (hasReachedMaxLinks(collectedLinks, maxLinks)) break;
 
@@ -138,7 +138,7 @@ export function addLinksUntilMax(collectedLinks: Set<string>, links: string[], m
     }
 }
 
-export function hasReachedMaxLinks(collectedLinks: Set<string>, maxLinks = MAX_LINKS) {
+export function hasReachedMaxLinks(collectedLinks: Set<string>, maxLinks = DEFAULT_MAX_LINKS) {
     return collectedLinks.size >= maxLinks;
 }
 
@@ -150,7 +150,7 @@ export function getPageUrl(pageNumber: number, baseUrl: string) {
     return new URL(`${pageNumber}/`, baseUrl).toString();
 }
 
-export async function saveLinks(links: string[], filePath = getLinksFilePath(), maxLinks = MAX_LINKS) {
+export async function saveLinks(links: string[], filePath = getLinksFilePath(), maxLinks = DEFAULT_MAX_LINKS) {
     const uniqueLinks = [...new Set(links)].slice(0, maxLinks);
     const sortedLinks = [...uniqueLinks];
     sortedLinks.sort(compareLinks);
@@ -188,6 +188,22 @@ export function getDiscussionCount($: cheerio.CheerioAPI) {
 
 export function normalizeLink(link: string, baseUrl: string) {
     return new URL(link, baseUrl).toString();
+}
+
+export function getIntEnv(name: string, fallback: number, min = 0) {
+    const raw = process.env[name]?.trim();
+
+    if (!raw) {
+        return fallback;
+    }
+
+    const value = Number(raw);
+
+    if (!Number.isInteger(value) || value < min) {
+        throw new Error(`Invalid integer in environment variable ${name}: ${raw}`);
+    }
+
+    return value;
 }
 
 export function getRequiredUrlEnv(name: string) {

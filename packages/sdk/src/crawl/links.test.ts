@@ -11,6 +11,7 @@ import {
     getDiscussionCount,
     getLinks,
     getLinkSortKey,
+    getIntEnv,
     getNextEmptyPageCount,
     getPageUrl,
     getRequiredUrlEnv,
@@ -22,6 +23,9 @@ import { getExamCodeEnv, getLinksFilePath, normalizeExamCode } from '../lib/exam
 import { readJsonFile } from '../lib/json-file';
 
 const originalBaseUrl = process.env.BASE_URL;
+const originalStartPage = process.env.START_PAGE;
+const originalEndPage = process.env.END_PAGE;
+const originalMaxLinks = process.env.MAX_LINKS;
 let tempDir = '';
 
 beforeEach(async () => {
@@ -30,6 +34,9 @@ beforeEach(async () => {
 
 afterEach(async () => {
     process.env.BASE_URL = originalBaseUrl;
+    process.env.START_PAGE = originalStartPage;
+    process.env.END_PAGE = originalEndPage;
+    process.env.MAX_LINKS = originalMaxLinks;
     await rm(tempDir, { force: true, recursive: true });
 });
 
@@ -100,6 +107,31 @@ describe('crawl link helpers', () => {
 
         process.env.BASE_URL = 'not a url';
         expect(() => getRequiredUrlEnv('BASE_URL')).toThrow('Invalid URL in environment variable BASE_URL: not a url');
+    });
+
+    test('reads integer crawl settings from the environment with defaults', () => {
+        delete process.env.START_PAGE;
+        delete process.env.END_PAGE;
+        delete process.env.MAX_LINKS;
+        expect(getIntEnv('START_PAGE', 1, 1)).toBe(1);
+        expect(getIntEnv('END_PAGE', 600, 1)).toBe(600);
+        expect(getIntEnv('MAX_LINKS', 113, 0)).toBe(113);
+
+        process.env.START_PAGE = ' 5 ';
+        process.env.END_PAGE = '10';
+        process.env.MAX_LINKS = '0';
+        expect(getIntEnv('START_PAGE', 1, 1)).toBe(5);
+        expect(getIntEnv('END_PAGE', 600, 1)).toBe(10);
+        expect(getIntEnv('MAX_LINKS', 113, 0)).toBe(0);
+
+        process.env.START_PAGE = '';
+        expect(getIntEnv('START_PAGE', 1, 1)).toBe(1);
+
+        process.env.START_PAGE = 'abc';
+        expect(() => getIntEnv('START_PAGE', 1, 1)).toThrow('Invalid integer in environment variable START_PAGE: abc');
+
+        process.env.START_PAGE = '0';
+        expect(() => getIntEnv('START_PAGE', 1, 1)).toThrow('Invalid integer in environment variable START_PAGE: 0');
     });
 
     test('reads exam code from the environment with a default fallback', () => {
