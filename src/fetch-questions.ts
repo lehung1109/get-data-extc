@@ -1,9 +1,8 @@
-import * as cheerio from 'cheerio';
 import { getErrorMessage } from './lib/errors';
 import { delay, fetchHtmlWithRetry, isCloudflareChallenge } from './lib/http';
 import { readJsonFile, writeJsonFile, writeJsonFileAtomic } from './lib/json-file';
-import { getDirectText, normalizeText } from './lib/text';
-import type { Answer, Question, QuestionComment } from './types';
+import { parseQuestion } from './lib/parse-question';
+import type { Question } from './types';
 
 const LINKS_FILE = 'links.json';
 const QUESTIONS_FILE = 'questions.json';
@@ -53,42 +52,6 @@ async function fetchQuestion(url: string) {
     }
 
     return parseQuestion(url, html);
-}
-
-function parseQuestion(url: string, html: string): Question {
-    const $ = cheerio.load(html);
-
-    return {
-        url,
-        title: normalizeText($('.card-text').first().text()),
-        answers: parseAnswers($),
-        comments: parseComments($),
-    };
-}
-
-function parseAnswers($: cheerio.CheerioAPI): Answer[] {
-    return $('.multi-choice-item')
-        .map((_, element) => ({
-            text: getDirectText($, element),
-            isCorrect: $(element).hasClass('correct-hidden'),
-        }))
-        .get();
-}
-
-function parseComments($: cheerio.CheerioAPI): QuestionComment[] {
-    return $('.comment-container')
-        .map((_, element) => {
-            const comment = $(element);
-            const username = comment.find('.comment-username').first();
-
-            return {
-                author: getDirectText($, username.get(0)),
-                date: comment.find('.comment-date').first().attr('title') ?? null,
-                commentSelectedAnswer: normalizeText(comment.find('.comment-selected-answers').text()),
-                commentContent: normalizeText(comment.find('.comment-content').text()),
-            };
-        })
-        .get();
 }
 
 fetchQuestions().catch((error) => {
