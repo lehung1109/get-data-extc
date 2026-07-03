@@ -6,8 +6,9 @@ import {
     normalizeExamCode,
 } from '../lib/exam';
 import { delay, fetchHtmlWithRetry, isCloudflareChallenge } from '../lib/http';
-import { readJsonFile, writeJsonFile, writeJsonFileAtomic } from '../lib/json-file';
+import { readJsonFile, readJsonFileIfExists, writeJsonFileAtomic } from '../lib/json-file';
 import { parseQuestion } from '../lib/parse-question';
+import { validateQuestions } from '../data/validate';
 import type { Question } from '../types';
 
 const DELAY_BETWEEN_QUESTIONS_MS = 2000;
@@ -30,12 +31,22 @@ export async function fetchQuestions(options: FetchQuestionsOptions = {}) {
     const logger = options.logger ?? console;
 
     const links = await readLinks(linksFile);
-    const questions: Question[] = [];
+    const questions = await loadExistingQuestions(questionsFile);
+    const existingUrls = new Set(questions.map((question) => question.url));
+    const linksToFetch = links.filter((link) => !existingUrls.has(link));
 
-    await writeJsonFile(questionsFile, questions);
+    if (questions.length > 0) {
+        logger.log(`Loaded ${questions.length} existing questions.`);
+    }
 
-    for (const [index, link] of links.entries()) {
-        logger.log(`Fetching question ${index + 1}/${links.length}: ${link}`);
+    const skippedCount = links.length - linksToFetch.length;
+
+    if (skippedCount > 0) {
+        logger.log(`Skipping ${skippedCount} links already fetched.`);
+    }
+
+    for (const [index, link] of linksToFetch.entries()) {
+        logger.log(`Fetching question ${index + 1}/${linksToFetch.length}: ${link}`);
 
         try {
             const question = await fetchQuestionFn(link);
@@ -46,7 +57,7 @@ export async function fetchQuestions(options: FetchQuestionsOptions = {}) {
             logger.error(`Failed to fetch ${link}: ${getErrorMessage(error)}`);
         }
 
-        if (index < links.length - 1 && delayBetweenQuestionsMs > 0) {
+        if (index < linksToFetch.length - 1 && delayBetweenQuestionsMs > 0) {
             await delay(delayBetweenQuestionsMs);
         }
     }
@@ -54,6 +65,12 @@ export async function fetchQuestions(options: FetchQuestionsOptions = {}) {
     logger.log(`Total questions saved: ${questions.length}`);
 
     return questions;
+}
+
+export async function loadExistingQuestions(filePath = getQuestionsFilePath()) {
+    const data = await readJsonFileIfExists<unknown>(filePath, []);
+
+    return validateQuestions(data);
 }
 
 export async function readLinks(filePath = getLinksFilePath()) {

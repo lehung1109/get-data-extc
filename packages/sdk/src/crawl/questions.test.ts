@@ -74,7 +74,7 @@ describe('fetchQuestion', () => {
 });
 
 describe('fetchQuestions', () => {
-    test('purges output, saves successful questions, and skips failed links', async () => {
+    test('saves successful questions, skips failed links, and merges with existing output', async () => {
         const linksFile = join(tempDir, 'links.json');
         const questionsFile = join(tempDir, 'questions.json');
         const question: Question = {
@@ -138,5 +138,57 @@ describe('fetchQuestions', () => {
         });
 
         expect(questions.map(({ url }) => url)).toEqual(['https://example.test/one', 'https://example.test/two']);
+    });
+
+    test('skips links that already exist in questions.json', async () => {
+        const linksFile = join(tempDir, 'links.json');
+        const questionsFile = join(tempDir, 'questions.json');
+        const existingQuestion: Question = {
+            url: 'https://example.test/existing',
+            examCode: 'gh-300',
+            topicNumber: 1,
+            questionNumber: 1,
+            title: 'Existing question',
+            answers: [],
+            comments: [],
+        };
+        const newQuestion: Question = {
+            url: 'https://example.test/new',
+            examCode: 'gh-300',
+            topicNumber: 1,
+            questionNumber: 2,
+            title: 'New question',
+            answers: [],
+            comments: [],
+        };
+
+        await writeFile(linksFile, JSON.stringify([
+            'https://example.test/existing',
+            'https://example.test/new',
+        ]));
+        await writeFile(questionsFile, JSON.stringify([existingQuestion]));
+
+        let fetchCalls = 0;
+        const questions = await fetchQuestions({
+            linksFile,
+            questionsFile,
+            delayBetweenQuestionsMs: 0,
+            fetchQuestionFn: async (url) => {
+                fetchCalls += 1;
+
+                return {
+                    ...newQuestion,
+                    url,
+                };
+            },
+            logger: {
+                error: () => undefined,
+                log: () => undefined,
+            },
+        });
+
+        expect(fetchCalls).toBe(1);
+        expect(questions).toEqual([existingQuestion, newQuestion]);
+        expect(JSON.parse(await readFile(questionsFile, 'utf8'))).toEqual([existingQuestion, newQuestion]);
     });
 });

@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { readJsonFile, writeJsonFile, writeJsonFileAtomic } from './json-file';
+import { readJsonFile, readJsonFileIfExists, writeJsonFile, writeJsonFileAtomic } from './json-file';
 
 let tempDir = '';
 
@@ -39,5 +39,19 @@ describe('json-file helpers', () => {
 
         await expect(readJsonFile(filePath)).resolves.toEqual({ ok: true });
         await expect(readFile(`${filePath}.tmp`, 'utf8')).rejects.toThrow();
+    });
+
+    test('returns fallback when JSON file does not exist', async () => {
+        const filePath = join(tempDir, 'missing.json');
+
+        await expect(readJsonFileIfExists(filePath, [])).resolves.toEqual([]);
+    });
+
+    test('reads existing JSON instead of fallback', async () => {
+        const filePath = join(tempDir, 'existing.json');
+
+        await writeJsonFile(filePath, ['alpha']);
+
+        await expect(readJsonFileIfExists<string[]>(filePath, [])).resolves.toEqual(['alpha']);
     });
 });

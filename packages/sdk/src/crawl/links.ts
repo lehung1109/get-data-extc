@@ -3,7 +3,7 @@ import { getErrorMessage } from '../lib/errors';
 import { isDiscussionLinkForExam, parseDiscussionUrlMetadata } from '../lib/discussion-url';
 import { DEFAULT_EXAM_CODE, getLinksFilePath, normalizeExamCode } from '../lib/exam';
 import { delay, fetchHtmlWithRetry, isCloudflareChallenge } from '../lib/http';
-import { writeJsonFileAtomic } from '../lib/json-file';
+import { writeJsonFileAtomic, readJsonFileIfExists } from '../lib/json-file';
 
 export const DEFAULT_START_PAGE = 1;
 export const DEFAULT_END_PAGE = 600;
@@ -48,10 +48,14 @@ export async function crawlPages(options: CrawlPagesOptions) {
             nextExamCode,
         ));
     const saveLinksFn = options.saveLinksFn ?? ((links) => saveLinks(links, getLinksFilePath(examCode), maxLinks));
+    const linksFilePath = getLinksFilePath(examCode);
+    const existingLinks = await loadExistingLinks(linksFilePath);
 
-    await saveLinksFn([]);
+    if (existingLinks.length > 0) {
+        logger.log(`Loaded ${existingLinks.length} existing links.`);
+    }
 
-    const collectedLinks = new Set<string>();
+    const collectedLinks = new Set<string>(existingLinks);
     let emptyPages = 0;
 
     for (let pageNumber = startPage; pageNumber <= endPage; pageNumber++) {
@@ -148,6 +152,16 @@ function logMaxLinksReached(maxLinks: number, logger: Pick<Console, 'log'>) {
 
 export function getPageUrl(pageNumber: number, baseUrl: string) {
     return new URL(`${pageNumber}/`, baseUrl).toString();
+}
+
+export async function loadExistingLinks(filePath = getLinksFilePath()) {
+    const links = await readJsonFileIfExists<unknown>(filePath, []);
+
+    if (!Array.isArray(links) || links.some((link) => typeof link !== 'string')) {
+        throw new Error(`${filePath} must be a JSON array of strings.`);
+    }
+
+    return links;
 }
 
 export async function saveLinks(links: string[], filePath = getLinksFilePath(), maxLinks = DEFAULT_MAX_LINKS) {

@@ -41,7 +41,8 @@ Notes:
 - Crawler commands use `EXAM_CODE` when provided; default is `gh-300`.
 - `START_PAGE`, `END_PAGE`, and `MAX_LINKS` are optional for `bun run crawl:links`; defaults are `1`, `600`, and `113`.
 - `DATA_DIR` defaults to `<repo-root>/data` (resolved by the SDK); the web app sets `../../data` relative to `apps/web`.
-- `bun run crawl:questions` purges `data/<examCode>/questions.json` first.
+- `bun run crawl:links` merges new links into existing `data/<examCode>/links.json` (deduped by URL).
+- `bun run crawl:questions` merges new questions into existing `data/<examCode>/questions.json` and skips links already fetched.
 - Do not run live crawler commands casually during code changes.
 - Prefer unit tests and dependency injection.
 
@@ -108,7 +109,7 @@ Normalize scraped text with `normalizeText()` so whitespace is collapsed and tri
 
 ## Safety Notes
 
-- `data/<examCode>/questions.json` is generated and can be overwritten by `bun run crawl:questions`.
-- `data/<examCode>/links.json` can be overwritten by `bun run crawl:links`.
+- `data/<examCode>/questions.json` is generated and updated incrementally by `bun run crawl:questions`.
+- `data/<examCode>/links.json` is generated and updated incrementally by `bun run crawl:links`.
 - Avoid destructive git commands unless explicitly requested.
 - Do not revert unrelated user changes in this workspace.

@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
@@ -31,6 +31,7 @@ let tempDir = '';
 
 beforeEach(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'get-data-extc-crawl-'));
+    process.env.DATA_DIR = tempDir;
 });
 
 afterEach(async () => {
@@ -257,7 +258,7 @@ describe('crawlPages', () => {
 
         expect(visitedPages).toEqual([1, 2]);
         expect(links).toEqual(['link-1', 'link-2']);
-        expect(saved).toEqual([[], ['link-1'], ['link-1', 'link-2']]);
+        expect(saved).toEqual([['link-1'], ['link-1', 'link-2']]);
     });
 
     test('collects links until maxLinks is reached', async () => {
@@ -283,7 +284,7 @@ describe('crawlPages', () => {
         });
 
         expect(links).toEqual(['link-1-a', 'link-1-b']);
-        expect(saved).toEqual([[], ['link-1-a', 'link-1-b']]);
+        expect(saved).toEqual([['link-1-a', 'link-1-b']]);
         expect(logs).toContain('Reached max links (2).');
         expect(logs).toContain('Total links collected: 2');
     });
@@ -305,5 +306,30 @@ describe('crawlPages', () => {
         });
 
         expect(links).toEqual([]);
+    });
+
+    test('preserves existing links when crawling new pages', async () => {
+        const linksFile = getLinksFilePath('gh-300');
+        await mkdir(join(tempDir, 'gh-300'), { recursive: true });
+        await writeFile(linksFile, JSON.stringify(['existing-link']));
+
+        const links = await crawlPages({
+            baseUrl: 'https://example.test/discussions/',
+            examCode: 'gh-300',
+            startPage: 1,
+            endPage: 1,
+            delayBetweenPagesMs: 0,
+            maxLinks: 5,
+            fetchPageDataFn: async () => ({
+                discussionCount: 1,
+                links: ['new-link'],
+            }),
+            logger: {
+                log: () => undefined,
+            },
+        });
+
+        expect(links).toEqual(['existing-link', 'new-link']);
+        await expect(readJsonFile(linksFile)).resolves.toEqual(['existing-link', 'new-link']);
     });
 });
