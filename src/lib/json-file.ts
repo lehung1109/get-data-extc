@@ -1,4 +1,5 @@
-import { readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 
 export async function readJsonFile<T>(filePath: string) {
     const content = await readFile(filePath, 'utf8');
@@ -7,6 +8,7 @@ export async function readJsonFile<T>(filePath: string) {
 }
 
 export async function writeJsonFile(filePath: string, data: unknown) {
+    await mkdir(dirname(filePath), { recursive: true });
     await writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`);
 }
 

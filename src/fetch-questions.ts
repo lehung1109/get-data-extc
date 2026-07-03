@@ -1,14 +1,20 @@
 import { getErrorMessage } from './lib/errors';
+import {
+    DEFAULT_EXAM_CODE,
+    getExamCodeEnv,
+    getLinksFilePath,
+    getQuestionsFilePath,
+    normalizeExamCode,
+} from './lib/exam';
 import { delay, fetchHtmlWithRetry, isCloudflareChallenge } from './lib/http';
 import { readJsonFile, writeJsonFile, writeJsonFileAtomic } from './lib/json-file';
 import { parseQuestion } from './lib/parse-question';
 import type { Question } from './types';
 
-const LINKS_FILE = 'links.json';
-const QUESTIONS_FILE = 'questions.json';
 const DELAY_BETWEEN_QUESTIONS_MS = 2000;
 
 type FetchQuestionsOptions = {
+    examCode?: string;
     linksFile?: string;
     questionsFile?: string;
     delayBetweenQuestionsMs?: number;
@@ -17,8 +23,9 @@ type FetchQuestionsOptions = {
 };
 
 export async function fetchQuestions(options: FetchQuestionsOptions = {}) {
-    const linksFile = options.linksFile ?? LINKS_FILE;
-    const questionsFile = options.questionsFile ?? QUESTIONS_FILE;
+    const examCode = normalizeExamCode(options.examCode ?? DEFAULT_EXAM_CODE);
+    const linksFile = options.linksFile ?? getLinksFilePath(examCode);
+    const questionsFile = options.questionsFile ?? getQuestionsFilePath(examCode);
     const delayBetweenQuestionsMs = options.delayBetweenQuestionsMs ?? DELAY_BETWEEN_QUESTIONS_MS;
     const fetchQuestionFn = options.fetchQuestionFn ?? fetchQuestion;
     const logger = options.logger ?? console;
@@ -50,7 +57,7 @@ export async function fetchQuestions(options: FetchQuestionsOptions = {}) {
     return questions;
 }
 
-export async function readLinks(filePath = LINKS_FILE) {
+export async function readLinks(filePath = getLinksFilePath()) {
     const links = await readJsonFile<unknown>(filePath);
 
     if (!Array.isArray(links) || links.some((link) => typeof link !== 'string')) {
@@ -71,7 +78,7 @@ export async function fetchQuestion(url: string) {
 }
 
 if (import.meta.main) {
-    fetchQuestions().catch((error) => {
+    fetchQuestions({ examCode: getExamCodeEnv('EXAM_CODE') }).catch((error) => {
         console.error(getErrorMessage(error));
         process.exitCode = 1;
     });

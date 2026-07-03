@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { fetchQuestion, fetchQuestions, readLinks } from './fetch-questions';
 import type { Question } from './types';
 
+const questionUrl = 'https://example.test/view/1-exam-gh-300-topic-1-question-1-discussion/';
+
 const originalFetch = globalThis.fetch;
 let tempDir = '';
 
@@ -49,8 +51,11 @@ describe('fetchQuestion', () => {
             <div class="multi-choice-item correct-hidden">A. Answer</div>
         `));
 
-        await expect(fetchQuestion('https://example.test/question')).resolves.toMatchObject({
-            url: 'https://example.test/question',
+        await expect(fetchQuestion(questionUrl)).resolves.toMatchObject({
+            examCode: 'gh-300',
+            topicNumber: 1,
+            questionNumber: 1,
+            url: questionUrl,
             title: 'Question?',
             answers: [
                 {
@@ -74,6 +79,9 @@ describe('fetchQuestions', () => {
         const questionsFile = join(tempDir, 'questions.json');
         const question: Question = {
             url: 'https://example.test/ok',
+            examCode: 'gh-300',
+            topicNumber: 1,
+            questionNumber: 1,
             title: 'Saved question',
             answers: [],
             comments: [],
@@ -105,6 +113,9 @@ describe('fetchQuestions', () => {
         const questionsFile = join(tempDir, 'questions.json');
         const question: Question = {
             url: 'https://example.test/ok',
+            examCode: 'gh-300',
+            topicNumber: 1,
+            questionNumber: 1,
             title: 'Saved question',
             answers: [],
             comments: [],

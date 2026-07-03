@@ -4,15 +4,15 @@
 
 This project is a Bun + TypeScript crawler/parser for ExamTopics discussion pages.
 
-- `src/crawl-links.ts` crawls discussion listing pages and writes `links.json`.
-- `src/fetch-questions.ts` reads `links.json`.
+- `src/crawl-links.ts` crawls discussion listing pages and writes exam-scoped `links.json` files.
+- `src/fetch-questions.ts` reads exam-scoped `links.json` files.
 - `src/fetch-questions.ts` fetches discussion pages and parses question data.
-- `src/fetch-questions.ts` writes `questions.json` incrementally.
+- `src/fetch-questions.ts` writes exam-scoped `questions.json` incrementally.
 - `src/lib/parse-question.ts` is the pure HTML parser for one question page.
 - `src/lib/http.ts`, `src/lib/json-file.ts`, `src/lib/text.ts`, and
 - `src/lib/errors.ts` contain shared helpers.
-- `links.json` is crawler input for question fetching.
-- `questions.json` is generated output and is purged at the start of `crawl:questions`.
+- `data/<examCode>/links.json` is crawler input for question fetching.
+- `data/<examCode>/questions.json` is generated output and is purged at the start of `crawl:questions`.
 
 ## Commands
 
@@ -29,21 +29,25 @@ bunx tsc --noEmit
 Notes:
 
 - `bun run crawl:links` requires the `BASE_URL` environment variable.
-- `bun run crawl:questions` fetches live URLs from `links.json`.
-- `bun run crawl:questions` purges `questions.json` first.
-- It rewrites `questions.json` after each successful question.
+- `bun run crawl:links` and `bun run crawl:questions` use `EXAM_CODE` when provided; default is `gh-300`.
+- `bun run crawl:questions` fetches live URLs from `data/<examCode>/links.json`.
+- `bun run crawl:questions` purges `data/<examCode>/questions.json` first.
+- It rewrites `data/<examCode>/questions.json` after each successful question.
 - Do not run live crawler commands casually during code changes.
 - Prefer unit tests and dependency injection.
 
 ## Data Contracts
 
-`links.json` must be a JSON array of strings.
+`data/<examCode>/links.json` must be a JSON array of strings.
 
-`questions.json` is a JSON array of question objects:
+`data/<examCode>/questions.json` is a JSON array of question objects:
 
 ```ts
 type Question = {
     url: string;
+    examCode: string;
+    topicNumber: number;
+    questionNumber: number;
     title: string;
     answers: {
         text: string;
@@ -111,7 +115,7 @@ behavior change.
 
 ## Safety Notes
 
-- `questions.json` is generated and can be overwritten by `bun run crawl:questions`.
-- `links.json` can be overwritten by `bun run crawl:links`.
+- `data/<examCode>/questions.json` is generated and can be overwritten by `bun run crawl:questions`.
+- `data/<examCode>/links.json` can be overwritten by `bun run crawl:links`.
 - Avoid destructive git commands unless explicitly requested.
 - Do not revert unrelated user changes in this workspace.

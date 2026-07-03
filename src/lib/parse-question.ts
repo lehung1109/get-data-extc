@@ -1,11 +1,19 @@
 import * as cheerio from 'cheerio';
+import { parseDiscussionUrlMetadata } from './discussion-url';
 import { getDirectText, normalizeText } from './text';
 import type { Answer, Question, QuestionComment } from '../types';
 
 export function parseQuestion(url: string, html: string): Question {
+    const metadata = parseDiscussionUrlMetadata(url);
+
+    if (!metadata) {
+        throw new Error(`URL is not an ExamTopics discussion URL: ${url}`);
+    }
+
     const $ = cheerio.load(html);
 
     return {
+        ...metadata,
         url,
         title: normalizeText($('.card-text').first().text()),
         answers: parseAnswers($),

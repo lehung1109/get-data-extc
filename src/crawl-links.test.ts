@@ -9,12 +9,15 @@ import {
     crawlPages,
     fetchPageData,
     getDiscussionCount,
+    getExamCodeEnv,
     getLinks,
+    getLinksFilePath,
     getLinkSortKey,
     getNextEmptyPageCount,
     getPageUrl,
     getRequiredUrlEnv,
     hasReachedMaxLinks,
+    normalizeExamCode,
     normalizeLink,
     saveLinks,
 } from './crawl-links';
@@ -62,6 +65,7 @@ describe('crawl link helpers', () => {
             '/view/2-exam-gh-300-topic-1-question-3-discussion/',
         ]);
         expect(getLinkSortKey('/view/1-exam-gh-300-topic-2-question-1-discussion/')).toEqual({
+            examCode: 'gh-300',
             topicNumber: 2,
             questionNumber: 1,
         });
@@ -70,6 +74,23 @@ describe('crawl link helpers', () => {
             '/view/1-exam-gh-300-topic-2-question-1-discussion/',
             '/view/2-exam-gh-300-topic-1-question-3-discussion/',
         )).toBeGreaterThan(0);
+    });
+
+    test('filters discussion links by configured exam code', () => {
+        const $ = cheerio.load(`
+            <div class="dicussion-title-container"><h2><a href="/view/1-exam-gh-300-topic-1-question-1-discussion/">skip</a></h2></div>
+            <div class="dicussion-title-container"><h2><a href="/view/2-exam-az-900-topic-1-question-2-discussion/">match</a></h2></div>
+        `);
+
+        expect(getLinks($, 'az-900')).toEqual([
+            '/view/2-exam-az-900-topic-1-question-2-discussion/',
+        ]);
+    });
+
+    test('normalizes exam codes and builds exam-specific links file paths', () => {
+        expect(normalizeExamCode(' GH-300 ')).toBe('gh-300');
+        expect(() => normalizeExamCode(' ')).toThrow('Exam code must not be empty.');
+        expect(getLinksFilePath('AZ-900')).toBe(join('data', 'az-900', 'links.json'));
     });
 
     test('reads and validates BASE_URL from the environment', () => {
@@ -81,6 +102,14 @@ describe('crawl link helpers', () => {
 
         process.env.BASE_URL = 'not a url';
         expect(() => getRequiredUrlEnv('BASE_URL')).toThrow('Invalid URL in environment variable BASE_URL: not a url');
+    });
+
+    test('reads exam code from the environment with a default fallback', () => {
+        delete process.env.EXAM_CODE;
+        expect(getExamCodeEnv('EXAM_CODE')).toBe('gh-300');
+
+        process.env.EXAM_CODE = ' AZ-900 ';
+        expect(getExamCodeEnv('EXAM_CODE')).toBe('az-900');
     });
 });
 

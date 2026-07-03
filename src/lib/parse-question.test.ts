@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { parseQuestion } from './parse-question';
 
+const firstQuestionUrl = 'https://example.test/view/1-exam-gh-300-topic-2-question-1-discussion/';
+const secondQuestionUrl = 'https://example.test/view/2-exam-az-900-topic-1-question-2-discussion/';
+
 describe('parseQuestion', () => {
     test('parses title, direct answer text, correct answer, and comments', () => {
         const html = `
@@ -32,8 +35,11 @@ describe('parseQuestion', () => {
             </article>
         `;
 
-        expect(parseQuestion('https://example.test/question-1', html)).toEqual({
-            url: 'https://example.test/question-1',
+        expect(parseQuestion(firstQuestionUrl, html)).toEqual({
+            examCode: 'gh-300',
+            topicNumber: 2,
+            questionNumber: 1,
+            url: firstQuestionUrl,
             title: 'Which option should be selected?',
             answers: [
                 {
@@ -66,8 +72,11 @@ describe('parseQuestion', () => {
             </section>
         `;
 
-        expect(parseQuestion('https://example.test/question-2', html)).toEqual({
-            url: 'https://example.test/question-2',
+        expect(parseQuestion(secondQuestionUrl, html)).toEqual({
+            examCode: 'az-900',
+            topicNumber: 1,
+            questionNumber: 2,
+            url: secondQuestionUrl,
             title: 'Question without full comment metadata',
             answers: [
                 {
@@ -84,5 +93,10 @@ describe('parseQuestion', () => {
                 },
             ],
         });
+    });
+
+    test('rejects URLs that are not ExamTopics discussion URLs', () => {
+        expect(() => parseQuestion('https://example.test/question-1', '<p class="card-text">Question?</p>'))
+            .toThrow('URL is not an ExamTopics discussion URL: https://example.test/question-1');
     });
 });

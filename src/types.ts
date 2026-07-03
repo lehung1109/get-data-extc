@@ -1,3 +1,5 @@
+import type { DiscussionUrlMetadata } from './lib/discussion-url';
+
 export type Answer = {
     text: string;
     isCorrect: boolean;
@@ -10,7 +12,7 @@ export type QuestionComment = {
     commentContent: string;
 };
 
-export type Question = {
+export type Question = DiscussionUrlMetadata & {
     url: string;
     title: string;
     answers: Answer[];

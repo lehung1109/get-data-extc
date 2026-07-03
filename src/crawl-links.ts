@@ -1,16 +1,15 @@
 import * as cheerio from 'cheerio';
 import { getErrorMessage } from './lib/errors';
+import { isDiscussionLinkForExam, parseDiscussionUrlMetadata } from './lib/discussion-url';
+import { DEFAULT_EXAM_CODE, getExamCodeEnv, getLinksFilePath, normalizeExamCode } from './lib/exam';
 import { delay, fetchHtmlWithRetry, isCloudflareChallenge } from './lib/http';
 import { writeJsonFileAtomic } from './lib/json-file';
 
-const LINKS_FILE = 'links.json';
 const START_PAGE = 1;
 const END_PAGE = 600;
 const DELAY_BETWEEN_PAGES_MS = 2000;
 const EMPTY_PAGE_LIMIT = 2;
 const MAX_LINKS = 113;
-const LINK_KEYWORD = 'gh-300';
-const LINK_SORT_KEY_PATTERN = /(?:^|\/)\d+-exam-gh-300-topic-(\d+)-question-(\d+)-discussion\/?$/;
 
 type PageData = {
     discussionCount: number;
@@ -21,25 +20,34 @@ type HtmlFetcher = (url: string) => Promise<string>;
 
 type CrawlPagesOptions = {
     baseUrl: string;
+    examCode?: string;
     startPage?: number;
     endPage?: number;
     delayBetweenPagesMs?: number;
     emptyPageLimit?: number;
     maxLinks?: number;
-    fetchPageDataFn?: (pageNumber: number, baseUrl: string) => Promise<PageData>;
+    fetchPageDataFn?: (pageNumber: number, baseUrl: string, examCode: string) => Promise<PageData>;
     saveLinksFn?: (links: string[]) => Promise<void>;
     logger?: Pick<Console, 'log'>;
 };
 
 export async function crawlPages(options: CrawlPagesOptions) {
+    const examCode = normalizeExamCode(options.examCode ?? DEFAULT_EXAM_CODE);
     const startPage = options.startPage ?? START_PAGE;
     const endPage = options.endPage ?? END_PAGE;
     const delayBetweenPagesMs = options.delayBetweenPagesMs ?? DELAY_BETWEEN_PAGES_MS;
     const emptyPageLimit = options.emptyPageLimit ?? EMPTY_PAGE_LIMIT;
     const maxLinks = options.maxLinks ?? MAX_LINKS;
-    const fetchPageDataFn = options.fetchPageDataFn ?? fetchPageData;
-    const saveLinksFn = options.saveLinksFn ?? ((links) => saveLinks(links, LINKS_FILE, maxLinks));
     const logger = options.logger ?? console;
+    const fetchPageDataFn = options.fetchPageDataFn
+        ?? ((pageNumber, baseUrl, nextExamCode) => fetchPageData(
+            pageNumber,
+            baseUrl,
+            fetchHtmlWithRetry,
+            logger,
+            nextExamCode,
+        ));
+    const saveLinksFn = options.saveLinksFn ?? ((links) => saveLinks(links, getLinksFilePath(examCode), maxLinks));
 
     await saveLinksFn([]);
 
@@ -52,7 +60,7 @@ export async function crawlPages(options: CrawlPagesOptions) {
             break;
         }
 
-        const { discussionCount, links } = await fetchPageDataFn(pageNumber, options.baseUrl);
+        const { discussionCount, links } = await fetchPageDataFn(pageNumber, options.baseUrl, examCode);
         emptyPages = getNextEmptyPageCount(emptyPages, discussionCount);
 
         if (emptyPages >= emptyPageLimit) {
@@ -88,6 +96,7 @@ export async function fetchPageData(
     baseUrl: string,
     fetchHtmlFn: HtmlFetcher = fetchHtmlWithRetry,
     logger: Pick<Console, 'log'> = console,
+    examCode = DEFAULT_EXAM_CODE,
 ) {
     const url = getPageUrl(pageNumber, baseUrl);
     logger.log(`Fetching page ${pageNumber}: ${url}`);
@@ -99,7 +108,7 @@ export async function fetchPageData(
     }
 
     const $ = cheerio.load(html);
-    const links = getLinks($).map((link) => normalizeLink(link, baseUrl));
+    const links = getLinks($, examCode).map((link) => normalizeLink(link, baseUrl));
 
     logPageLinks(pageNumber, links, logger);
 
@@ -141,7 +150,7 @@ export function getPageUrl(pageNumber: number, baseUrl: string) {
     return new URL(`${pageNumber}/`, baseUrl).toString();
 }
 
-export async function saveLinks(links: string[], filePath = LINKS_FILE, maxLinks = MAX_LINKS) {
+export async function saveLinks(links: string[], filePath = getLinksFilePath(), maxLinks = MAX_LINKS) {
     const uniqueLinks = [...new Set(links)].slice(0, maxLinks);
     const sortedLinks = [...uniqueLinks];
     sortedLinks.sort(compareLinks);
@@ -157,26 +166,20 @@ export function compareLinks(firstLink: string, secondLink: string) {
     if (!firstKey) return 1;
     if (!secondKey) return -1;
 
-    return firstKey.topicNumber - secondKey.topicNumber
+    return firstKey.examCode.localeCompare(secondKey.examCode)
+        || firstKey.topicNumber - secondKey.topicNumber
         || firstKey.questionNumber - secondKey.questionNumber;
 }
 
 export function getLinkSortKey(link: string) {
-    const match = LINK_SORT_KEY_PATTERN.exec(link);
-
-    if (!match) return null;
-
-    return {
-        topicNumber: Number(match[1]),
-        questionNumber: Number(match[2]),
-    };
+    return parseDiscussionUrlMetadata(link);
 }
 
-export const getLinks = ($: cheerio.CheerioAPI) => {
+export const getLinks = ($: cheerio.CheerioAPI, examCode = DEFAULT_EXAM_CODE) => {
     return $('.dicussion-title-container > h2 > a')
                 .map((_, el) => $(el).attr('href'))
                 .get()
-                .filter((href) => href?.toLowerCase().includes(LINK_KEYWORD));
+                .filter((href) => isDiscussionLinkForExam(href, examCode));
 }
 
 export function getDiscussionCount($: cheerio.CheerioAPI) {
@@ -207,8 +210,13 @@ export function getRequiredUrlEnv(name: string) {
     }
 }
 
+export { getExamCodeEnv, getLinksFilePath, normalizeExamCode };
+
 if (import.meta.main) {
-    crawlPages({ baseUrl: getRequiredUrlEnv('BASE_URL') }).catch((error) => {
+    crawlPages({
+        baseUrl: getRequiredUrlEnv('BASE_URL'),
+        examCode: getExamCodeEnv('EXAM_CODE'),
+    }).catch((error) => {
         console.error(getErrorMessage(error));
         process.exitCode = 1;
     });

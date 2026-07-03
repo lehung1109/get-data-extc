@@ -24,6 +24,14 @@ describe('json-file helpers', () => {
         await expect(readJsonFile(filePath)).resolves.toEqual([{ name: 'alpha' }]);
     });
 
+    test('creates parent directories before writing JSON', async () => {
+        const filePath = join(tempDir, 'nested', 'data.json');
+
+        await writeJsonFile(filePath, { ok: true });
+
+        await expect(readJsonFile(filePath)).resolves.toEqual({ ok: true });
+    });
+
     test('writes JSON atomically and removes the temporary file', async () => {
         const filePath = join(tempDir, 'atomic.json');
 
