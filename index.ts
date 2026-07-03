@@ -11,6 +11,7 @@ const MAX_RETRIES = 2;
 const EMPTY_PAGE_LIMIT = 2;
 const MAX_LINKS = 113;
 const LINK_KEYWORD = 'gh-300';
+const LINK_SORT_KEY_PATTERN = /(?:^|\/)\d+-exam-gh-300-topic-(\d+)-question-(\d+)-discussion\/?$/;
 
 async function crawlPages(startPage: number, endPage: number) {
     await resetLinksFile();
@@ -153,7 +154,33 @@ async function fetchHtml(url: string) {
 
 async function saveLinks(links: string[]) {
     const uniqueLinks = [...new Set(links)].slice(0, MAX_LINKS);
-    await writeFile(LINKS_FILE, JSON.stringify(uniqueLinks, null, 2));
+    const sortedLinks = [...uniqueLinks];
+    sortedLinks.sort(compareLinks);
+
+    await writeFile(LINKS_FILE, JSON.stringify(sortedLinks, null, 2));
+}
+
+function compareLinks(firstLink: string, secondLink: string) {
+    const firstKey = getLinkSortKey(firstLink);
+    const secondKey = getLinkSortKey(secondLink);
+
+    if (!firstKey && !secondKey) return 0;
+    if (!firstKey) return 1;
+    if (!secondKey) return -1;
+
+    return firstKey.topicNumber - secondKey.topicNumber
+        || firstKey.questionNumber - secondKey.questionNumber;
+}
+
+function getLinkSortKey(link: string) {
+    const match = LINK_SORT_KEY_PATTERN.exec(link);
+
+    if (!match) return null;
+
+    return {
+        topicNumber: Number(match[1]),
+        questionNumber: Number(match[2]),
+    };
 }
 
 const getLinks = ($: cheerio.CheerioAPI) => {
