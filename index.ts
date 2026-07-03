@@ -44,6 +44,7 @@ async function crawlPages(startPage: number, endPage: number) {
 
     const links = [...collectedLinks];
     await saveLinks(links);
+    console.log(`Total links collected: ${links.length}`);
 
     return links;
 }
@@ -59,11 +60,22 @@ async function fetchPageData(pageNumber: number) {
     }
 
     const $ = cheerio.load(html);
+    const links = getLinks($).map(normalizeLink);
+
+    logPageLinks(pageNumber, links);
 
     return {
         discussionCount: getDiscussionCount($),
-        links: getLinks($).map(normalizeLink),
+        links,
     };
+}
+
+function logPageLinks(pageNumber: number, links: string[]) {
+    console.log(`Found ${links.length} matching links on page ${pageNumber}.`);
+
+    for (const link of links) {
+        console.log(link);
+    }
 }
 
 function getNextEmptyPageCount(emptyPages: number, discussionCount: number) {
@@ -215,7 +227,7 @@ function getErrorMessage(error: unknown) {
     }
 }
 
-crawlPages(START_PAGE, END_PAGE).then(console.log).catch((error) => {
+crawlPages(START_PAGE, END_PAGE).catch((error) => {
     console.error(getErrorMessage(error));
     process.exitCode = 1;
 });
