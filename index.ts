@@ -1,10 +1,10 @@
 import * as cheerio from 'cheerio';
-import { readFile, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 
 const LINKS_FILE = 'links.json';
 const BASE_URL = getRequiredUrlEnv('BASE_URL');
-const START_PAGE = 1;
-const END_PAGE = 50;
+const START_PAGE = 51;
+const END_PAGE = 200;
 const REQUEST_TIMEOUT_MS = 30000;
 const DELAY_BETWEEN_PAGES_MS = 2000;
 const MAX_RETRIES = 2;
@@ -13,7 +13,9 @@ const MAX_LINKS = 113;
 const LINK_KEYWORD = 'gh-300';
 
 async function crawlPages(startPage: number, endPage: number) {
-    const collectedLinks = new Set(await readExistingLinks());
+    await resetLinksFile();
+
+    const collectedLinks = new Set<string>();
     let emptyPages = 0;
 
     for (let pageNumber = startPage; pageNumber <= endPage; pageNumber++) {
@@ -98,19 +100,8 @@ function logMaxLinksReached() {
     console.log(`Reached max links (${MAX_LINKS}).`);
 }
 
-async function readExistingLinks() {
-    try {
-        const content = await readFile(LINKS_FILE, 'utf-8');
-        const links = JSON.parse(content);
-
-        if (Array.isArray(links)) {
-            return links.filter((link): link is string => typeof link === 'string');
-        }
-    } catch {
-        // links.json is optional on the first run.
-    }
-
-    return [];
+async function resetLinksFile() {
+    await saveLinks([]);
 }
 
 function getPageUrl(pageNumber: number) {
@@ -161,8 +152,6 @@ async function fetchHtml(url: string) {
 }
 
 async function saveLinks(links: string[]) {
-    if (links.length === 0) return;
-
     const uniqueLinks = [...new Set(links)].slice(0, MAX_LINKS);
     await writeFile(LINKS_FILE, JSON.stringify(uniqueLinks, null, 2));
 }
