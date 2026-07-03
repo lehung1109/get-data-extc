@@ -4,7 +4,6 @@ import { delay, fetchHtmlWithRetry, isCloudflareChallenge } from './lib/http';
 import { writeJsonFile } from './lib/json-file';
 
 const LINKS_FILE = 'links.json';
-const BASE_URL = getRequiredUrlEnv('BASE_URL');
 const START_PAGE = 1;
 const END_PAGE = 600;
 const DELAY_BETWEEN_PAGES_MS = 2000;
@@ -13,59 +12,92 @@ const MAX_LINKS = 113;
 const LINK_KEYWORD = 'gh-300';
 const LINK_SORT_KEY_PATTERN = /(?:^|\/)\d+-exam-gh-300-topic-(\d+)-question-(\d+)-discussion\/?$/;
 
-async function crawlPages(startPage: number, endPage: number) {
-    await resetLinksFile();
+type PageData = {
+    discussionCount: number;
+    links: string[];
+};
+
+type HtmlFetcher = (url: string) => Promise<string>;
+
+type CrawlPagesOptions = {
+    baseUrl: string;
+    startPage?: number;
+    endPage?: number;
+    delayBetweenPagesMs?: number;
+    emptyPageLimit?: number;
+    maxLinks?: number;
+    fetchPageDataFn?: (pageNumber: number, baseUrl: string) => Promise<PageData>;
+    saveLinksFn?: (links: string[]) => Promise<void>;
+    logger?: Pick<Console, 'log'>;
+};
+
+export async function crawlPages(options: CrawlPagesOptions) {
+    const startPage = options.startPage ?? START_PAGE;
+    const endPage = options.endPage ?? END_PAGE;
+    const delayBetweenPagesMs = options.delayBetweenPagesMs ?? DELAY_BETWEEN_PAGES_MS;
+    const emptyPageLimit = options.emptyPageLimit ?? EMPTY_PAGE_LIMIT;
+    const maxLinks = options.maxLinks ?? MAX_LINKS;
+    const fetchPageDataFn = options.fetchPageDataFn ?? fetchPageData;
+    const saveLinksFn = options.saveLinksFn ?? ((links) => saveLinks(links, LINKS_FILE, maxLinks));
+    const logger = options.logger ?? console;
+
+    await saveLinksFn([]);
 
     const collectedLinks = new Set<string>();
     let emptyPages = 0;
 
     for (let pageNumber = startPage; pageNumber <= endPage; pageNumber++) {
-        if (hasReachedMaxLinks(collectedLinks)) {
-            logMaxLinksReached();
+        if (hasReachedMaxLinks(collectedLinks, maxLinks)) {
+            logMaxLinksReached(maxLinks, logger);
             break;
         }
 
-        const { discussionCount, links } = await fetchPageData(pageNumber);
+        const { discussionCount, links } = await fetchPageDataFn(pageNumber, options.baseUrl);
         emptyPages = getNextEmptyPageCount(emptyPages, discussionCount);
 
-        if (emptyPages >= EMPTY_PAGE_LIMIT) {
-            console.log(`Stopped after ${EMPTY_PAGE_LIMIT} empty pages.`);
+        if (emptyPages >= emptyPageLimit) {
+            logger.log(`Stopped after ${emptyPageLimit} empty pages.`);
             break;
         }
 
-        addLinksUntilMax(collectedLinks, links);
+        addLinksUntilMax(collectedLinks, links, maxLinks);
 
-        if (hasReachedMaxLinks(collectedLinks)) {
-            logMaxLinksReached();
+        if (hasReachedMaxLinks(collectedLinks, maxLinks)) {
+            logMaxLinksReached(maxLinks, logger);
             break;
         }
 
         if (pageNumber < endPage) {
-            await delay(DELAY_BETWEEN_PAGES_MS);
+            await delay(delayBetweenPagesMs);
         }
     }
 
     const links = [...collectedLinks];
-    await saveLinks(links);
-    console.log(`Total links collected: ${links.length}`);
+    await saveLinksFn(links);
+    logger.log(`Total links collected: ${links.length}`);
 
     return links;
 }
 
-async function fetchPageData(pageNumber: number) {
-    const url = getPageUrl(pageNumber);
-    console.log(`Fetching page ${pageNumber}: ${url}`);
+export async function fetchPageData(
+    pageNumber: number,
+    baseUrl: string,
+    fetchHtmlFn: HtmlFetcher = fetchHtmlWithRetry,
+    logger: Pick<Console, 'log'> = console,
+) {
+    const url = getPageUrl(pageNumber, baseUrl);
+    logger.log(`Fetching page ${pageNumber}: ${url}`);
 
-    const html = await fetchHtmlWithRetry(url);
+    const html = await fetchHtmlFn(url);
 
     if (isCloudflareChallenge(html)) {
         throw new Error(`Cloudflare challenge detected at ${url}`);
     }
 
     const $ = cheerio.load(html);
-    const links = getLinks($).map(normalizeLink);
+    const links = getLinks($).map((link) => normalizeLink(link, baseUrl));
 
-    logPageLinks(pageNumber, links);
+    logPageLinks(pageNumber, links, logger);
 
     return {
         discussionCount: getDiscussionCount($),
@@ -73,51 +105,47 @@ async function fetchPageData(pageNumber: number) {
     };
 }
 
-function logPageLinks(pageNumber: number, links: string[]) {
-    console.log(`Found ${links.length} matching links on page ${pageNumber}.`);
+function logPageLinks(pageNumber: number, links: string[], logger: Pick<Console, 'log'> = console) {
+    logger.log(`Found ${links.length} matching links on page ${pageNumber}.`);
 
     for (const link of links) {
-        console.log(link);
+        logger.log(link);
     }
 }
 
-function getNextEmptyPageCount(emptyPages: number, discussionCount: number) {
+export function getNextEmptyPageCount(emptyPages: number, discussionCount: number) {
     return discussionCount === 0 ? emptyPages + 1 : 0;
 }
 
-function addLinksUntilMax(collectedLinks: Set<string>, links: string[]) {
+export function addLinksUntilMax(collectedLinks: Set<string>, links: string[], maxLinks = MAX_LINKS) {
     for (const link of links) {
-        if (hasReachedMaxLinks(collectedLinks)) break;
+        if (hasReachedMaxLinks(collectedLinks, maxLinks)) break;
 
         collectedLinks.add(link);
     }
 }
 
-function hasReachedMaxLinks(collectedLinks: Set<string>) {
-    return collectedLinks.size >= MAX_LINKS;
+export function hasReachedMaxLinks(collectedLinks: Set<string>, maxLinks = MAX_LINKS) {
+    return collectedLinks.size >= maxLinks;
 }
 
-function logMaxLinksReached() {
-    console.log(`Reached max links (${MAX_LINKS}).`);
+function logMaxLinksReached(maxLinks: number, logger: Pick<Console, 'log'>) {
+    logger.log(`Reached max links (${maxLinks}).`);
 }
 
-async function resetLinksFile() {
-    await saveLinks([]);
+export function getPageUrl(pageNumber: number, baseUrl: string) {
+    return new URL(`${pageNumber}/`, baseUrl).toString();
 }
 
-function getPageUrl(pageNumber: number) {
-    return new URL(`${pageNumber}/`, BASE_URL).toString();
-}
-
-async function saveLinks(links: string[]) {
-    const uniqueLinks = [...new Set(links)].slice(0, MAX_LINKS);
+export async function saveLinks(links: string[], filePath = LINKS_FILE, maxLinks = MAX_LINKS) {
+    const uniqueLinks = [...new Set(links)].slice(0, maxLinks);
     const sortedLinks = [...uniqueLinks];
     sortedLinks.sort(compareLinks);
 
-    await writeJsonFile(LINKS_FILE, sortedLinks);
+    await writeJsonFile(filePath, sortedLinks);
 }
 
-function compareLinks(firstLink: string, secondLink: string) {
+export function compareLinks(firstLink: string, secondLink: string) {
     const firstKey = getLinkSortKey(firstLink);
     const secondKey = getLinkSortKey(secondLink);
 
@@ -129,7 +157,7 @@ function compareLinks(firstLink: string, secondLink: string) {
         || firstKey.questionNumber - secondKey.questionNumber;
 }
 
-function getLinkSortKey(link: string) {
+export function getLinkSortKey(link: string) {
     const match = LINK_SORT_KEY_PATTERN.exec(link);
 
     if (!match) return null;
@@ -140,22 +168,22 @@ function getLinkSortKey(link: string) {
     };
 }
 
-const getLinks = ($: cheerio.CheerioAPI) => {
+export const getLinks = ($: cheerio.CheerioAPI) => {
     return $('.dicussion-title-container > h2 > a')
                 .map((_, el) => $(el).attr('href'))
                 .get()
                 .filter((href) => href?.toLowerCase().includes(LINK_KEYWORD));
 }
 
-function getDiscussionCount($: cheerio.CheerioAPI) {
+export function getDiscussionCount($: cheerio.CheerioAPI) {
     return $('.dicussion-title-container > h2 > a').length;
 }
 
-function normalizeLink(link: string) {
-    return new URL(link, BASE_URL).toString();
+export function normalizeLink(link: string, baseUrl: string) {
+    return new URL(link, baseUrl).toString();
 }
 
-function getRequiredUrlEnv(name: string) {
+export function getRequiredUrlEnv(name: string) {
     const value = process.env[name]?.trim();
 
     if (!value) {
@@ -175,7 +203,9 @@ function getRequiredUrlEnv(name: string) {
     }
 }
 
-crawlPages(START_PAGE, END_PAGE).catch((error) => {
-    console.error(getErrorMessage(error));
-    process.exitCode = 1;
-});
+if (import.meta.main) {
+    crawlPages({ baseUrl: getRequiredUrlEnv('BASE_URL') }).catch((error) => {
+        console.error(getErrorMessage(error));
+        process.exitCode = 1;
+    });
+}

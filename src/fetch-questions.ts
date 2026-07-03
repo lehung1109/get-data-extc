@@ -8,43 +8,59 @@ const LINKS_FILE = 'links.json';
 const QUESTIONS_FILE = 'questions.json';
 const DELAY_BETWEEN_QUESTIONS_MS = 2000;
 
-async function fetchQuestions() {
-    const links = await readLinks();
+type FetchQuestionsOptions = {
+    linksFile?: string;
+    questionsFile?: string;
+    delayBetweenQuestionsMs?: number;
+    fetchQuestionFn?: (url: string) => Promise<Question>;
+    logger?: Pick<Console, 'error' | 'log'>;
+};
+
+export async function fetchQuestions(options: FetchQuestionsOptions = {}) {
+    const linksFile = options.linksFile ?? LINKS_FILE;
+    const questionsFile = options.questionsFile ?? QUESTIONS_FILE;
+    const delayBetweenQuestionsMs = options.delayBetweenQuestionsMs ?? DELAY_BETWEEN_QUESTIONS_MS;
+    const fetchQuestionFn = options.fetchQuestionFn ?? fetchQuestion;
+    const logger = options.logger ?? console;
+
+    const links = await readLinks(linksFile);
     const questions: Question[] = [];
 
-    await writeJsonFile(QUESTIONS_FILE, questions);
+    await writeJsonFile(questionsFile, questions);
 
     for (const [index, link] of links.entries()) {
-        console.log(`Fetching question ${index + 1}/${links.length}: ${link}`);
+        logger.log(`Fetching question ${index + 1}/${links.length}: ${link}`);
 
         try {
-            const question = await fetchQuestion(link);
+            const question = await fetchQuestionFn(link);
             questions.push(question);
-            await writeJsonFileAtomic(QUESTIONS_FILE, questions);
-            console.log(`Saved question ${questions.length}: ${question.title}`);
+            await writeJsonFileAtomic(questionsFile, questions);
+            logger.log(`Saved question ${questions.length}: ${question.title}`);
         } catch (error) {
-            console.error(`Failed to fetch ${link}: ${getErrorMessage(error)}`);
+            logger.error(`Failed to fetch ${link}: ${getErrorMessage(error)}`);
         }
 
-        if (index < links.length - 1) {
-            await delay(DELAY_BETWEEN_QUESTIONS_MS);
+        if (index < links.length - 1 && delayBetweenQuestionsMs > 0) {
+            await delay(delayBetweenQuestionsMs);
         }
     }
 
-    console.log(`Total questions saved: ${questions.length}`);
+    logger.log(`Total questions saved: ${questions.length}`);
+
+    return questions;
 }
 
-async function readLinks() {
-    const links = await readJsonFile<unknown>(LINKS_FILE);
+export async function readLinks(filePath = LINKS_FILE) {
+    const links = await readJsonFile<unknown>(filePath);
 
     if (!Array.isArray(links) || links.some((link) => typeof link !== 'string')) {
-        throw new Error(`${LINKS_FILE} must be a JSON array of strings.`);
+        throw new Error(`${filePath} must be a JSON array of strings.`);
     }
 
     return links;
 }
 
-async function fetchQuestion(url: string) {
+export async function fetchQuestion(url: string) {
     const html = await fetchHtmlWithRetry(url);
 
     if (isCloudflareChallenge(html)) {
@@ -54,7 +70,9 @@ async function fetchQuestion(url: string) {
     return parseQuestion(url, html);
 }
 
-fetchQuestions().catch((error) => {
-    console.error(getErrorMessage(error));
-    process.exitCode = 1;
-});
+if (import.meta.main) {
+    fetchQuestions().catch((error) => {
+        console.error(getErrorMessage(error));
+        process.exitCode = 1;
+    });
+}
