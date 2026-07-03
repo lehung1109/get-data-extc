@@ -1,15 +1,21 @@
 {
-  "scripts": {
-    "crawl:links": "bun run src/crawl-links.ts",
-    "crawl:questions": "bun run src/fetch-questions.ts",
-    "test": "bun test",
-    "coverage": "bun test --coverage"
-  },
-  "dependencies": {
-    "cheerio": "^1.2.0"
-  },
-  "devDependencies": {
-    "@types/bun": "^1.3.14",
-    "@types/node": "^26.1.0"
-  }
+    "name": "get-data-extc",
+    "private": true,
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "crawl:links": "bun run --cwd apps/crawler-cli crawl:links",
+        "crawl:questions": "bun run --cwd apps/crawler-cli crawl:questions",
+        "test": "bun test packages/sdk apps/crawler-cli",
+        "coverage": "bun test --coverage packages/sdk apps/crawler-cli",
+        "typecheck": "bunx tsc --noEmit -p packages/sdk && bunx tsc --noEmit -p apps/crawler-cli && bunx tsc --noEmit -p apps/web",
+        "dev:web": "bun run --cwd apps/web dev"
+    },
+    "devDependencies": {
+        "@types/bun": "^1.3.14",
+        "@types/node": "^26.1.0",
+        "typescript": "^5.8.2"
+    }
 }

@@ -1,19 +1,18 @@
-import { getErrorMessage } from './lib/errors';
+import { getErrorMessage } from '../lib/errors';
 import {
     DEFAULT_EXAM_CODE,
-    getExamCodeEnv,
     getLinksFilePath,
     getQuestionsFilePath,
     normalizeExamCode,
-} from './lib/exam';
-import { delay, fetchHtmlWithRetry, isCloudflareChallenge } from './lib/http';
-import { readJsonFile, writeJsonFile, writeJsonFileAtomic } from './lib/json-file';
-import { parseQuestion } from './lib/parse-question';
-import type { Question } from './types';
+} from '../lib/exam';
+import { delay, fetchHtmlWithRetry, isCloudflareChallenge } from '../lib/http';
+import { readJsonFile, writeJsonFile, writeJsonFileAtomic } from '../lib/json-file';
+import { parseQuestion } from '../lib/parse-question';
+import type { Question } from '../types';
 
 const DELAY_BETWEEN_QUESTIONS_MS = 2000;
 
-type FetchQuestionsOptions = {
+export type FetchQuestionsOptions = {
     examCode?: string;
     linksFile?: string;
     questionsFile?: string;
@@ -75,11 +74,4 @@ export async function fetchQuestion(url: string) {
     }
 
     return parseQuestion(url, html);
-}
-
-if (import.meta.main) {
-    fetchQuestions({ examCode: getExamCodeEnv('EXAM_CODE') }).catch((error) => {
-        console.error(getErrorMessage(error));
-        process.exitCode = 1;
-    });
 }

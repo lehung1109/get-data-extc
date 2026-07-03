@@ -2,37 +2,44 @@
 
 ## Project Overview
 
-This project is a Bun + TypeScript crawler/parser for ExamTopics discussion pages.
+This project is a Bun monorepo for crawling ExamTopics discussion pages and serving practice exams.
 
-- `src/crawl-links.ts` crawls discussion listing pages and writes exam-scoped `links.json` files.
-- `src/fetch-questions.ts` reads exam-scoped `links.json` files.
-- `src/fetch-questions.ts` fetches discussion pages and parses question data.
-- `src/fetch-questions.ts` writes exam-scoped `questions.json` incrementally.
-- `src/lib/parse-question.ts` is the pure HTML parser for one question page.
-- `src/lib/http.ts`, `src/lib/json-file.ts`, `src/lib/text.ts`, and
-- `src/lib/errors.ts` contain shared helpers.
-- `data/<examCode>/links.json` is crawler input for question fetching.
-- `data/<examCode>/questions.json` is generated output and is purged at the start of `crawl:questions`.
+### Workspace layout
+
+- `apps/crawler-cli` — CLI entrypoints for crawling links and fetching questions.
+- `apps/web` — Next.js app that consumes `questions.json` and runs practice exams.
+- `packages/sdk` — shared SDK (crawl, parse, data validation, exam generation/scoring).
+- `data/<examCode>/links.json` — crawler input for question fetching.
+- `data/<examCode>/questions.json` — generated question output.
+
+### SDK modules
+
+- `packages/sdk/src/crawl/links.ts` — crawl discussion listing pages.
+- `packages/sdk/src/crawl/questions.ts` — fetch and persist questions.
+- `packages/sdk/src/lib/parse-question.ts` — pure HTML parser for one question page.
+- `packages/sdk/src/data/validate.ts` — runtime validation for `questions.json`.
+- `packages/sdk/src/exam/generate.ts` — deterministic exam generation.
+- `packages/sdk/src/exam/score.ts` — exam scoring.
 
 ## Commands
 
-Use Bun for all project tasks.
+Use Bun for all project tasks from the repository root.
 
 ```powershell
 bun run crawl:links
 bun run crawl:questions
+bun run dev:web
 bun test
 bun run coverage
-bunx tsc --noEmit
+bun run typecheck
 ```
 
 Notes:
 
 - `bun run crawl:links` requires the `BASE_URL` environment variable.
-- `bun run crawl:links` and `bun run crawl:questions` use `EXAM_CODE` when provided; default is `gh-300`.
-- `bun run crawl:questions` fetches live URLs from `data/<examCode>/links.json`.
+- Crawler commands use `EXAM_CODE` when provided; default is `gh-300`.
+- `DATA_DIR` defaults to `data` at the repository root; the web app sets `../../data` relative to `apps/web`.
 - `bun run crawl:questions` purges `data/<examCode>/questions.json` first.
-- It rewrites `data/<examCode>/questions.json` after each successful question.
 - Do not run live crawler commands casually during code changes.
 - Prefer unit tests and dependency injection.
 
@@ -67,25 +74,20 @@ Parsing rules:
 - `title`: first `.card-text` text content.
 - `answers`: one item per `.multi-choice-item`.
 - answer `text`: direct text nodes only from `.multi-choice-item`.
-- answer `text`: ignore nested element text.
 - answer `isCorrect`: true when the `.multi-choice-item` has class `correct-hidden`.
 - `comments`: one item per `.comment-container`.
-- `author`: direct text nodes only from `.comment-username`.
-- `date`: `title` attribute from `.comment-date`, or `null`.
-- `commentSelectedAnswer`: full text content from `.comment-selected-answers`.
-- `commentContent`: full text content from `.comment-content`.
 
 Normalize scraped text with `normalizeText()` so whitespace is collapsed and trimmed.
 
 ## Coding Standards
 
 - Keep TypeScript strict-compatible.
-- Validate TypeScript edits with `bunx tsc --noEmit`.
+- Validate TypeScript edits with `bun run typecheck`.
 - Prefer small, pure helpers for parsing, sorting, validation, and text normalization.
 - Keep runner files import-safe with `if (import.meta.main)` guards.
 - Do not put network or filesystem side effects in module top-level code.
 - Use dependency injection in tests instead of live network calls.
-- Reuse existing helpers from `src/lib/*` before adding new utilities.
+- Reuse existing helpers from `packages/sdk` before adding new utilities.
 - Write generated JSON with `JSON.stringify(data, null, 2)`.
 - Use `writeJsonFile()` or `writeJsonFileAtomic()` for trailing newlines.
 - Preserve the current indentation style: 4 spaces in TypeScript files.
@@ -99,19 +101,8 @@ Normalize scraped text with `normalizeText()` so whitespace is collapsed and tri
 - Use temp directories/files for JSON file tests.
 - Mock or inject fetch behavior for HTTP/crawler tests.
 - Run `bun test` after meaningful logic changes.
-- Run `bunx tsc --noEmit` after meaningful logic changes.
+- Run `bun run typecheck` after meaningful logic changes.
 - Run `bun run coverage` after meaningful logic changes.
-
-Coverage is expected to stay high. Current project shape has coverage-focused
-tests for:
-
-- `src/crawl-links.ts`
-- `src/fetch-questions.ts`
-- all shared modules in `src/lib/*`
-
-Remaining uncovered production lines are mostly CLI-only `import.meta.main`
-catch blocks. Do not overfit tests just to cover those unless there is a real
-behavior change.
 
 ## Safety Notes
 

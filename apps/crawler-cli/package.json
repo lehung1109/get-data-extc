@@ -1,0 +1,17 @@
+{
+    "name": "@get-data-extc/crawler-cli",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "@get-data-extc/sdk": "workspace:*"
+    },
+    "scripts": {
+        "crawl:links": "bun run src/crawl-links.ts",
+        "crawl:questions": "bun run src/fetch-questions.ts"
+    },
+    "devDependencies": {
+        "@types/bun": "^1.3.14",
+        "@types/node": "^26.1.0"
+    }
+}

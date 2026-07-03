@@ -1,6 +1,8 @@
 import { join } from 'node:path';
 
-const DATA_DIR = 'data';
+export function getDataDir() {
+    return process.env.DATA_DIR?.trim() || 'data';
+}
 const LINKS_FILE = 'links.json';
 const QUESTIONS_FILE = 'questions.json';
 
@@ -21,7 +23,7 @@ export function getExamCodeEnv(name: string, fallback = DEFAULT_EXAM_CODE) {
 }
 
 export function getExamDataFilePath(examCode: string, fileName: string) {
-    return join(DATA_DIR, normalizeExamCode(examCode), fileName);
+    return join(getDataDir(), normalizeExamCode(examCode), fileName);
 }
 
 export function getLinksFilePath(examCode = DEFAULT_EXAM_CODE) {

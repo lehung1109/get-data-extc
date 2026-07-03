@@ -2,8 +2,8 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { fetchQuestion, fetchQuestions, readLinks } from './fetch-questions';
-import type { Question } from './types';
+import { fetchQuestion, fetchQuestions, readLinks } from './questions';
+import type { Question } from '../types';
 
 const questionUrl = 'https://example.test/view/1-exam-gh-300-topic-1-question-1-discussion/';
 

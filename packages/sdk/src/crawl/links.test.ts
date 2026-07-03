@@ -9,19 +9,17 @@ import {
     crawlPages,
     fetchPageData,
     getDiscussionCount,
-    getExamCodeEnv,
     getLinks,
-    getLinksFilePath,
     getLinkSortKey,
     getNextEmptyPageCount,
     getPageUrl,
     getRequiredUrlEnv,
     hasReachedMaxLinks,
-    normalizeExamCode,
     normalizeLink,
     saveLinks,
-} from './crawl-links';
-import { readJsonFile } from './lib/json-file';
+} from './links';
+import { getExamCodeEnv, getLinksFilePath, normalizeExamCode } from '../lib/exam';
+import { readJsonFile } from '../lib/json-file';
 
 const originalBaseUrl = process.env.BASE_URL;
 let tempDir = '';

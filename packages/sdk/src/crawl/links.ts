@@ -1,9 +1,9 @@
 import * as cheerio from 'cheerio';
-import { getErrorMessage } from './lib/errors';
-import { isDiscussionLinkForExam, parseDiscussionUrlMetadata } from './lib/discussion-url';
-import { DEFAULT_EXAM_CODE, getExamCodeEnv, getLinksFilePath, normalizeExamCode } from './lib/exam';
-import { delay, fetchHtmlWithRetry, isCloudflareChallenge } from './lib/http';
-import { writeJsonFileAtomic } from './lib/json-file';
+import { getErrorMessage } from '../lib/errors';
+import { isDiscussionLinkForExam, parseDiscussionUrlMetadata } from '../lib/discussion-url';
+import { DEFAULT_EXAM_CODE, getLinksFilePath, normalizeExamCode } from '../lib/exam';
+import { delay, fetchHtmlWithRetry, isCloudflareChallenge } from '../lib/http';
+import { writeJsonFileAtomic } from '../lib/json-file';
 
 const START_PAGE = 1;
 const END_PAGE = 600;
@@ -18,7 +18,7 @@ type PageData = {
 
 type HtmlFetcher = (url: string) => Promise<string>;
 
-type CrawlPagesOptions = {
+export type CrawlPagesOptions = {
     baseUrl: string;
     examCode?: string;
     startPage?: number;
@@ -180,7 +180,7 @@ export const getLinks = ($: cheerio.CheerioAPI, examCode = DEFAULT_EXAM_CODE) =>
                 .map((_, el) => $(el).attr('href'))
                 .get()
                 .filter((href) => isDiscussionLinkForExam(href, examCode));
-}
+};
 
 export function getDiscussionCount($: cheerio.CheerioAPI) {
     return $('.dicussion-title-container > h2 > a').length;
@@ -208,16 +208,4 @@ export function getRequiredUrlEnv(name: string) {
     } catch {
         throw new Error(`Invalid URL in environment variable ${name}: ${value}`);
     }
-}
-
-export { getExamCodeEnv, getLinksFilePath, normalizeExamCode };
-
-if (import.meta.main) {
-    crawlPages({
-        baseUrl: getRequiredUrlEnv('BASE_URL'),
-        examCode: getExamCodeEnv('EXAM_CODE'),
-    }).catch((error) => {
-        console.error(getErrorMessage(error));
-        process.exitCode = 1;
-    });
 }

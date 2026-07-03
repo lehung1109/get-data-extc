@@ -1,11 +1,8 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "types": ["node", "bun-types"],
-    "strict": true,
-    "skipLibCheck": true
-  },
-  "include": ["src/**/*.ts"]
+    "files": [],
+    "references": [
+        { "path": "./packages/sdk" },
+        { "path": "./apps/crawler-cli" },
+        { "path": "./apps/web" }
+    ]
 }
