@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 
 const LINKS_FILE = 'links.json';
 const BASE_URL = getRequiredUrlEnv('BASE_URL');
-const START_PAGE = 51;
+const START_PAGE = 1;
 const END_PAGE = 200;
 const REQUEST_TIMEOUT_MS = 30000;
 const DELAY_BETWEEN_PAGES_MS = 2000;
