@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import { getErrorMessage } from './lib/errors';
 import { delay, fetchHtmlWithRetry, isCloudflareChallenge } from './lib/http';
-import { writeJsonFile } from './lib/json-file';
+import { writeJsonFileAtomic } from './lib/json-file';
 
 const LINKS_FILE = 'links.json';
 const START_PAGE = 1;
@@ -60,7 +60,12 @@ export async function crawlPages(options: CrawlPagesOptions) {
             break;
         }
 
+        const previousLinkCount = collectedLinks.size;
         addLinksUntilMax(collectedLinks, links, maxLinks);
+
+        if (collectedLinks.size > previousLinkCount) {
+            await saveLinksFn([...collectedLinks]);
+        }
 
         if (hasReachedMaxLinks(collectedLinks, maxLinks)) {
             logMaxLinksReached(maxLinks, logger);
@@ -73,7 +78,6 @@ export async function crawlPages(options: CrawlPagesOptions) {
     }
 
     const links = [...collectedLinks];
-    await saveLinksFn(links);
     logger.log(`Total links collected: ${links.length}`);
 
     return links;
@@ -142,7 +146,7 @@ export async function saveLinks(links: string[], filePath = LINKS_FILE, maxLinks
     const sortedLinks = [...uniqueLinks];
     sortedLinks.sort(compareLinks);
 
-    await writeJsonFile(filePath, sortedLinks);
+    await writeJsonFileAtomic(filePath, sortedLinks);
 }
 
 export function compareLinks(firstLink: string, secondLink: string) {

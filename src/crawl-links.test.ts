@@ -162,6 +162,7 @@ describe('crawlPages', () => {
 
     test('continues to the next page when no stop condition is met', async () => {
         const visitedPages: number[] = [];
+        const saved: string[][] = [];
 
         const links = await crawlPages({
             baseUrl: 'https://example.test/discussions/',
@@ -177,7 +178,9 @@ describe('crawlPages', () => {
                     links: [`link-${pageNumber}`],
                 };
             },
-            saveLinksFn: async () => undefined,
+            saveLinksFn: async (nextLinks) => {
+                saved.push([...nextLinks]);
+            },
             logger: {
                 log: () => undefined,
             },
@@ -185,6 +188,7 @@ describe('crawlPages', () => {
 
         expect(visitedPages).toEqual([1, 2]);
         expect(links).toEqual(['link-1', 'link-2']);
+        expect(saved).toEqual([[], ['link-1'], ['link-1', 'link-2']]);
     });
 
     test('collects links until maxLinks is reached', async () => {
