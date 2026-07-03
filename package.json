@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "crawl:links": "bun run src/crawl-links.ts",
+    "crawl:questions": "bun run src/fetch-questions.ts"
+  },
   "dependencies": {
     "cheerio": "^1.2.0"
   },

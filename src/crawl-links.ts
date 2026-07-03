@@ -1,13 +1,13 @@
 import * as cheerio from 'cheerio';
-import { writeFile } from 'node:fs/promises';
+import { getErrorMessage } from './lib/errors';
+import { delay, fetchHtmlWithRetry, isCloudflareChallenge } from './lib/http';
+import { writeJsonFile } from './lib/json-file';
 
 const LINKS_FILE = 'links.json';
 const BASE_URL = getRequiredUrlEnv('BASE_URL');
 const START_PAGE = 1;
 const END_PAGE = 600;
-const REQUEST_TIMEOUT_MS = 30000;
 const DELAY_BETWEEN_PAGES_MS = 2000;
-const MAX_RETRIES = 2;
 const EMPTY_PAGE_LIMIT = 2;
 const MAX_LINKS = 113;
 const LINK_KEYWORD = 'gh-300';
@@ -109,55 +109,12 @@ function getPageUrl(pageNumber: number) {
     return new URL(`${pageNumber}/`, BASE_URL).toString();
 }
 
-async function fetchHtmlWithRetry(url: string) {
-    let lastError: unknown;
-
-    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-        try {
-            return await fetchHtml(url);
-        } catch (error) {
-            lastError = error;
-
-            if (attempt > MAX_RETRIES) break;
-
-            const retryDelay = DELAY_BETWEEN_PAGES_MS * attempt;
-            console.log(`Retrying ${url} after error: ${getErrorMessage(error)}`);
-            await delay(retryDelay);
-        }
-    }
-
-    throw lastError;
-}
-
-async function fetchHtml(url: string) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    try {
-        const response = await fetch(url, {
-            signal: controller.signal,
-            headers: {
-                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
-                accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            },
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status} ${response.statusText}`);
-        }
-
-        return await response.text();
-    } finally {
-        clearTimeout(timeout);
-    }
-}
-
 async function saveLinks(links: string[]) {
     const uniqueLinks = [...new Set(links)].slice(0, MAX_LINKS);
     const sortedLinks = [...uniqueLinks];
     sortedLinks.sort(compareLinks);
 
-    await writeFile(LINKS_FILE, JSON.stringify(sortedLinks, null, 2));
+    await writeJsonFile(LINKS_FILE, sortedLinks);
 }
 
 function compareLinks(firstLink: string, secondLink: string) {
@@ -215,31 +172,6 @@ function getRequiredUrlEnv(name: string) {
         return url.toString();
     } catch {
         throw new Error(`Invalid URL in environment variable ${name}: ${value}`);
-    }
-}
-
-function isCloudflareChallenge(html: string) {
-    const lowerHtml = html.toLowerCase();
-
-    return lowerHtml.includes('just a moment')
-        || lowerHtml.includes('cf-chl')
-        || lowerHtml.includes('checking your browser')
-        || lowerHtml.includes('verify you are human')
-        || lowerHtml.includes('cf-browser-verification');
-}
-
-function delay(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function getErrorMessage(error: unknown) {
-    if (error instanceof Error) return error.message;
-    if (typeof error === 'string') return error;
-
-    try {
-        return JSON.stringify(error);
-    } catch {
-        return 'Unknown error';
     }
 }
 
