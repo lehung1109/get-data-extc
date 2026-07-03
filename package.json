@@ -6,8 +6,8 @@
         "packages/*"
     ],
     "scripts": {
-        "crawl:links": "bun run --cwd apps/crawler-cli crawl:links",
-        "crawl:questions": "bun run --cwd apps/crawler-cli crawl:questions",
+        "crawl:links": "bun --env-file=.env run apps/crawler-cli/src/crawl-links.ts",
+        "crawl:questions": "bun --env-file=.env run apps/crawler-cli/src/fetch-questions.ts",
         "test": "bun test packages/sdk apps/crawler-cli",
         "coverage": "bun test --coverage packages/sdk apps/crawler-cli",
         "typecheck": "bunx tsc --noEmit -p packages/sdk && bunx tsc --noEmit -p apps/crawler-cli && bunx tsc --noEmit -p apps/web",

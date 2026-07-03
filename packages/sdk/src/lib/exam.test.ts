@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
+    getDataDir,
     getExamCodeEnv,
     getExamDataFilePath,
     getLinksFilePath,
@@ -9,9 +10,16 @@ import {
 } from './exam';
 
 const originalExamCode = process.env.EXAM_CODE;
+const originalDataDir = process.env.DATA_DIR;
 
 afterEach(() => {
     process.env.EXAM_CODE = originalExamCode;
+
+    if (originalDataDir === undefined) {
+        delete process.env.DATA_DIR;
+    } else {
+        process.env.DATA_DIR = originalDataDir;
+    }
 });
 
 describe('exam helpers', () => {
@@ -34,8 +42,15 @@ describe('exam helpers', () => {
     });
 
     test('builds exam-scoped data file paths', () => {
+        process.env.DATA_DIR = 'data';
+
         expect(getExamDataFilePath('GH-300', 'custom.json')).toBe(join('data', 'gh-300', 'custom.json'));
         expect(getLinksFilePath('AZ-900')).toBe(join('data', 'az-900', 'links.json'));
         expect(getQuestionsFilePath('SC-300')).toBe(join('data', 'sc-300', 'questions.json'));
+    });
+
+    test('getDataDir uses DATA_DIR when set explicitly', () => {
+        process.env.DATA_DIR = '/custom/data';
+        expect(getDataDir()).toBe('/custom/data');
     });
 });

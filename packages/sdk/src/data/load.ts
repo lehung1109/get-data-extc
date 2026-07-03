@@ -1,4 +1,4 @@
-import { getQuestionsFilePath } from '../lib/exam';
+import { getDataDir, getQuestionsFilePath } from '../lib/exam';
 import { readJsonFile } from '../lib/json-file';
 import type { Question } from '../types';
 import { validateQuestions } from './validate';
@@ -12,7 +12,7 @@ export async function loadQuestions(examCode: string, questionsFile?: string): P
 
 export async function listExamCodes(dataDir?: string): Promise<string[]> {
     const { readdir } = await import('node:fs/promises');
-    const baseDir = dataDir ?? (process.env.DATA_DIR?.trim() || 'data');
+    const baseDir = dataDir ?? getDataDir();
 
     try {
         const entries = await readdir(baseDir, { withFileTypes: true });

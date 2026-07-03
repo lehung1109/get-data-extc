@@ -26,6 +26,7 @@ const originalBaseUrl = process.env.BASE_URL;
 const originalStartPage = process.env.START_PAGE;
 const originalEndPage = process.env.END_PAGE;
 const originalMaxLinks = process.env.MAX_LINKS;
+const originalDataDir = process.env.DATA_DIR;
 let tempDir = '';
 
 beforeEach(async () => {
@@ -37,6 +38,13 @@ afterEach(async () => {
     process.env.START_PAGE = originalStartPage;
     process.env.END_PAGE = originalEndPage;
     process.env.MAX_LINKS = originalMaxLinks;
+
+    if (originalDataDir === undefined) {
+        delete process.env.DATA_DIR;
+    } else {
+        process.env.DATA_DIR = originalDataDir;
+    }
+
     await rm(tempDir, { force: true, recursive: true });
 });
 
@@ -93,6 +101,8 @@ describe('crawl link helpers', () => {
     });
 
     test('normalizes exam codes and builds exam-specific links file paths', () => {
+        process.env.DATA_DIR = 'data';
+
         expect(normalizeExamCode(' GH-300 ')).toBe('gh-300');
         expect(() => normalizeExamCode(' ')).toThrow('Exam code must not be empty.');
         expect(getLinksFilePath('AZ-900')).toBe(join('data', 'az-900', 'links.json'));

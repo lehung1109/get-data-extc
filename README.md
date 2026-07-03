@@ -12,10 +12,13 @@ Bun monorepo for crawling ExamTopics questions and running practice exams.
 
 ```powershell
 bun install
-bun run crawl:links   # requires BASE_URL
+cp .env.example .env   # set BASE_URL, then run from repo root
+bun run crawl:links
 bun run crawl:questions
 bun run dev:web
 ```
+
+Crawler scripts load `.env` from the repository root via `--env-file`. Run `crawl:links` and `crawl:questions` from the repo root so output goes to `data/<examCode>/`.
 
 ## SDK usage example
 

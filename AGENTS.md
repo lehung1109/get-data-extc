@@ -36,10 +36,11 @@ bun run typecheck
 
 Notes:
 
-- `bun run crawl:links` requires the `BASE_URL` environment variable.
+- Copy `.env.example` to `.env` at the repository root and set `BASE_URL`.
+- `bun run crawl:links` and `bun run crawl:questions` load root `.env` via `--env-file`; run them from the repo root.
 - Crawler commands use `EXAM_CODE` when provided; default is `gh-300`.
 - `START_PAGE`, `END_PAGE`, and `MAX_LINKS` are optional for `bun run crawl:links`; defaults are `1`, `600`, and `113`.
-- `DATA_DIR` defaults to `data` at the repository root; the web app sets `../../data` relative to `apps/web`.
+- `DATA_DIR` defaults to `<repo-root>/data` (resolved by the SDK); the web app sets `../../data` relative to `apps/web`.
 - `bun run crawl:questions` purges `data/<examCode>/questions.json` first.
 - Do not run live crawler commands casually during code changes.
 - Prefer unit tests and dependency injection.

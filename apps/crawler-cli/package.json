@@ -7,8 +7,8 @@
         "@get-data-extc/sdk": "workspace:*"
     },
     "scripts": {
-        "crawl:links": "bun run src/crawl-links.ts",
-        "crawl:questions": "bun run src/fetch-questions.ts"
+        "crawl:links": "bun --env-file=../../.env run src/crawl-links.ts",
+        "crawl:questions": "bun --env-file=../../.env run src/fetch-questions.ts"
     },
     "devDependencies": {
         "@types/bun": "^1.3.14",

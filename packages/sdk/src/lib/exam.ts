@@ -1,7 +1,12 @@
 import { join } from 'node:path';
+import { resolveDefaultDataDir } from './repo-root';
 
 export function getDataDir() {
-    return process.env.DATA_DIR?.trim() || 'data';
+    if (process.env.DATA_DIR?.trim()) {
+        return process.env.DATA_DIR.trim();
+    }
+
+    return resolveDefaultDataDir();
 }
 const LINKS_FILE = 'links.json';
 const QUESTIONS_FILE = 'questions.json';
