@@ -4,44 +4,37 @@ import { readFile, writeFile } from 'node:fs/promises';
 const LINKS_FILE = 'links.json';
 const BASE_URL = getRequiredUrlEnv('BASE_URL');
 const START_PAGE = 1;
-const END_PAGE = 10;
+const END_PAGE = 50;
 const REQUEST_TIMEOUT_MS = 30000;
 const DELAY_BETWEEN_PAGES_MS = 2000;
 const MAX_RETRIES = 2;
 const EMPTY_PAGE_LIMIT = 2;
+const MAX_LINKS = 113;
 const LINK_KEYWORD = 'gh-300';
 
 async function crawlPages(startPage: number, endPage: number) {
-    const collectedLinks = new Set<string>();
+    const collectedLinks = new Set(await readExistingLinks());
     let emptyPages = 0;
 
     for (let pageNumber = startPage; pageNumber <= endPage; pageNumber++) {
-        const url = getPageUrl(pageNumber);
-        console.log(`Fetching page ${pageNumber}: ${url}`);
-
-        const html = await fetchHtmlWithRetry(url);
-
-        if (isCloudflareChallenge(html)) {
-            throw new Error(`Cloudflare challenge detected at ${url}`);
+        if (hasReachedMaxLinks(collectedLinks)) {
+            logMaxLinksReached();
+            break;
         }
 
-        const $ = cheerio.load(html);
-        const discussionCount = getDiscussionCount($);
-        const links = getLinks($).map(normalizeLink);
+        const { discussionCount, links } = await fetchPageData(pageNumber);
+        emptyPages = getNextEmptyPageCount(emptyPages, discussionCount);
 
-        if (discussionCount === 0) {
-            emptyPages++;
-
-            if (emptyPages >= EMPTY_PAGE_LIMIT) {
-                console.log(`Stopped after ${EMPTY_PAGE_LIMIT} empty pages.`);
-                break;
-            }
-        } else {
-            emptyPages = 0;
+        if (emptyPages >= EMPTY_PAGE_LIMIT) {
+            console.log(`Stopped after ${EMPTY_PAGE_LIMIT} empty pages.`);
+            break;
         }
 
-        for (const link of links) {
-            collectedLinks.add(link);
+        addLinksUntilMax(collectedLinks, links);
+
+        if (hasReachedMaxLinks(collectedLinks)) {
+            logMaxLinksReached();
+            break;
         }
 
         if (pageNumber < endPage) {
@@ -53,6 +46,59 @@ async function crawlPages(startPage: number, endPage: number) {
     await saveLinks(links);
 
     return links;
+}
+
+async function fetchPageData(pageNumber: number) {
+    const url = getPageUrl(pageNumber);
+    console.log(`Fetching page ${pageNumber}: ${url}`);
+
+    const html = await fetchHtmlWithRetry(url);
+
+    if (isCloudflareChallenge(html)) {
+        throw new Error(`Cloudflare challenge detected at ${url}`);
+    }
+
+    const $ = cheerio.load(html);
+
+    return {
+        discussionCount: getDiscussionCount($),
+        links: getLinks($).map(normalizeLink),
+    };
+}
+
+function getNextEmptyPageCount(emptyPages: number, discussionCount: number) {
+    return discussionCount === 0 ? emptyPages + 1 : 0;
+}
+
+function addLinksUntilMax(collectedLinks: Set<string>, links: string[]) {
+    for (const link of links) {
+        if (hasReachedMaxLinks(collectedLinks)) break;
+
+        collectedLinks.add(link);
+    }
+}
+
+function hasReachedMaxLinks(collectedLinks: Set<string>) {
+    return collectedLinks.size >= MAX_LINKS;
+}
+
+function logMaxLinksReached() {
+    console.log(`Reached max links (${MAX_LINKS}).`);
+}
+
+async function readExistingLinks() {
+    try {
+        const content = await readFile(LINKS_FILE, 'utf-8');
+        const links = JSON.parse(content);
+
+        if (Array.isArray(links)) {
+            return links.filter((link): link is string => typeof link === 'string');
+        }
+    } catch {
+        // links.json is optional on the first run.
+    }
+
+    return [];
 }
 
 function getPageUrl(pageNumber: number) {
@@ -105,16 +151,7 @@ async function fetchHtml(url: string) {
 async function saveLinks(links: string[]) {
     if (links.length === 0) return;
 
-    let existingLinks: string[] = [];
-
-    try {
-        const content = await readFile(LINKS_FILE, 'utf-8');
-        existingLinks = JSON.parse(content);
-    } catch {
-        existingLinks = [];
-    }
-
-    const uniqueLinks = [...new Set([...existingLinks, ...links])];
+    const uniqueLinks = [...new Set(links)].slice(0, MAX_LINKS);
     await writeFile(LINKS_FILE, JSON.stringify(uniqueLinks, null, 2));
 }
 
