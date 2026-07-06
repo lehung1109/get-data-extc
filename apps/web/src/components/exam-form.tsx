@@ -7,6 +7,17 @@ type ExamFormProps = {
     exam: ClientExam;
 };
 
+function parseSelectedAnswerIndices(formData: FormData, questionId: string, allowsMultipleAnswers: boolean): number[] {
+    const rawValues = allowsMultipleAnswers
+        ? formData.getAll(questionId)
+        : [formData.get(questionId)];
+
+    return rawValues
+        .filter((value): value is string => typeof value === 'string' && value !== '')
+        .map((value) => Number.parseInt(value, 10))
+        .filter((value) => Number.isInteger(value));
+}
+
 export function ExamForm({ exam }: ExamFormProps) {
     const [result, setResult] = useState<ExamResult | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -18,17 +29,14 @@ export function ExamForm({ exam }: ExamFormProps) {
         setError(null);
 
         const formData = new FormData(event.currentTarget);
-        const answers = exam.questions.map((question) => {
-            const rawValue = formData.get(question.id);
-            const selectedAnswerIndex = typeof rawValue === 'string' && rawValue !== ''
-                ? Number.parseInt(rawValue, 10)
-                : null;
-
-            return {
-                questionId: question.id,
-                selectedAnswerIndex: Number.isInteger(selectedAnswerIndex) ? selectedAnswerIndex : null,
-            };
-        });
+        const answers = exam.questions.map((question) => ({
+            questionId: question.id,
+            selectedAnswerIndices: parseSelectedAnswerIndices(
+                formData,
+                question.id,
+                question.allowsMultipleAnswers,
+            ),
+        }));
 
         try {
             const response = await fetch(`/api/exams/${exam.examCode}/submit`, {
@@ -64,6 +72,8 @@ export function ExamForm({ exam }: ExamFormProps) {
                     {result.details.map((detail) => (
                         <li key={detail.questionId} style={{ marginBottom: '0.5rem' }}>
                             Question {detail.questionId}: {detail.correct ? 'Correct' : 'Incorrect'}
+                            {' '}
+                            ({detail.selectedAnswerIndices.length} selected, {detail.correctAnswerIndices.length} required)
                         </li>
                     ))}
                 </ol>
@@ -79,9 +89,18 @@ export function ExamForm({ exam }: ExamFormProps) {
                         Question {index + 1} (topic {question.topicNumber}, question {question.questionNumber})
                     </legend>
                     <p>{question.title}</p>
+                    {question.allowsMultipleAnswers ? (
+                        <p style={{ color: '#475569', fontSize: '0.875rem', marginTop: 0 }}>
+                            Select multiple answers
+                        </p>
+                    ) : null}
                     {question.answers.map((answer, answerIndex) => (
                         <label key={`${question.id}-${answerIndex}`} style={{ display: 'block', marginBottom: '0.5rem' }}>
-                            <input type="radio" name={question.id} value={answerIndex} />
+                            <input
+                                type={question.allowsMultipleAnswers ? 'checkbox' : 'radio'}
+                                name={question.id}
+                                value={answerIndex}
+                            />
                             {' '}
                             {answer.text}
                         </label>

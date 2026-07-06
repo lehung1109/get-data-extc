@@ -7,12 +7,13 @@ export type ExamQuestion = {
     topicNumber: number;
     questionNumber: number;
     title: string;
+    allowsMultipleAnswers: boolean;
     answers: ExamAnswerOption[];
 };
 
 export type ExamAnswerKey = {
     questionId: string;
-    correctAnswerIndex: number;
+    correctAnswerIndices: number[];
 };
 
 export type Exam = {
@@ -25,7 +26,7 @@ export type Exam = {
 
 export type ExamSubmissionAnswer = {
     questionId: string;
-    selectedAnswerIndex: number | null;
+    selectedAnswerIndices: number[];
 };
 
 export type ExamSubmission = {
@@ -36,8 +37,8 @@ export type ExamSubmission = {
 export type ExamQuestionResult = {
     questionId: string;
     correct: boolean;
-    selectedAnswerIndex: number | null;
-    correctAnswerIndex: number;
+    selectedAnswerIndices: number[];
+    correctAnswerIndices: number[];
 };
 
 export type ExamResult = {

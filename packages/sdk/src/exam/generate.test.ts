@@ -43,6 +43,21 @@ const sampleQuestions: Question[] = [
     },
 ];
 
+const multiSelectQuestion: Question = {
+    url: 'https://example.test/multi',
+    examCode: 'gh-300',
+    topicNumber: 1,
+    questionNumber: 8,
+    title: 'Choose two answers',
+    answers: [
+        { text: 'A', isCorrect: true },
+        { text: 'B', isCorrect: true },
+        { text: 'C', isCorrect: false },
+        { text: 'D', isCorrect: false },
+    ],
+    comments: [],
+};
+
 describe('exam random helpers', () => {
     test('shuffleWithSeed is deterministic for the same seed', () => {
         const items = [1, 2, 3, 4, 5];
@@ -86,6 +101,23 @@ describe('generateExam', () => {
             seed: 'seed',
         })).toThrow('No questions found for exam code: az-900');
     });
+
+    test('marks multi-select questions and stores all correct answer indices', () => {
+        const exam = generateExam({
+            examCode: 'gh-300',
+            questions: [multiSelectQuestion],
+            questionCount: 1,
+            seed: 'multi-seed',
+            examId: 'exam-multi',
+        });
+
+        const question = exam.questions[0];
+        const answerKey = exam.answerKey[0];
+
+        expect(question?.allowsMultipleAnswers).toBe(true);
+        expect(answerKey?.correctAnswerIndices).toHaveLength(2);
+        expect(answerKey?.correctAnswerIndices.every((index) => question?.answers[index])).toBe(true);
+    });
 });
 
 describe('scoreExam', () => {
@@ -105,7 +137,7 @@ describe('scoreExam', () => {
 
                 return {
                     questionId: question.id,
-                    selectedAnswerIndex: key?.correctAnswerIndex ?? null,
+                    selectedAnswerIndices: key?.correctAnswerIndices ?? [],
                 };
             }),
         });
@@ -113,6 +145,45 @@ describe('scoreExam', () => {
         expect(result.score).toBe(2);
         expect(result.total).toBe(2);
         expect(result.percentage).toBe(100);
+    });
+
+    test('scores multi-select questions only when all correct answers are selected', () => {
+        const exam = generateExam({
+            examCode: 'gh-300',
+            questions: [multiSelectQuestion],
+            questionCount: 1,
+            seed: 'multi-score-seed',
+            examId: 'exam-multi-score',
+        });
+
+        const answerKey = exam.answerKey[0]?.correctAnswerIndices ?? [];
+
+        const perfectResult = scoreExam(exam, {
+            examId: exam.id,
+            answers: [{
+                questionId: exam.questions[0]?.id ?? '',
+                selectedAnswerIndices: answerKey,
+            }],
+        });
+        expect(perfectResult.score).toBe(1);
+
+        const partialResult = scoreExam(exam, {
+            examId: exam.id,
+            answers: [{
+                questionId: exam.questions[0]?.id ?? '',
+                selectedAnswerIndices: answerKey.slice(0, 1),
+            }],
+        });
+        expect(partialResult.score).toBe(0);
+
+        const extraResult = scoreExam(exam, {
+            examId: exam.id,
+            answers: [{
+                questionId: exam.questions[0]?.id ?? '',
+                selectedAnswerIndices: [...answerKey, (answerKey[0] ?? 0) + 1],
+            }],
+        });
+        expect(extraResult.score).toBe(0);
     });
 
     test('rejects mismatched exam ids', () => {

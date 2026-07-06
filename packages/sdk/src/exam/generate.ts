@@ -14,9 +14,11 @@ function toExamQuestion(question: Question, seed: string): { examQuestion: ExamQ
     }));
 
     const shuffled = pickWithSeed(answersWithIndex, answersWithIndex.length, `${seed}:${getQuestionId(question)}`);
-    const correctAnswerIndex = shuffled.findIndex((answer) => answer.isCorrect);
+    const correctAnswerIndices = shuffled
+        .map((answer, index) => (answer.isCorrect ? index : -1))
+        .filter((index) => index >= 0);
 
-    if (correctAnswerIndex < 0) {
+    if (correctAnswerIndices.length === 0) {
         throw new Error(`Question ${getQuestionId(question)} has no correct answer.`);
     }
 
@@ -26,11 +28,12 @@ function toExamQuestion(question: Question, seed: string): { examQuestion: ExamQ
             topicNumber: question.topicNumber,
             questionNumber: question.questionNumber,
             title: question.title,
+            allowsMultipleAnswers: correctAnswerIndices.length > 1,
             answers: shuffled.map(({ text }) => ({ text })),
         },
         answerKey: {
             questionId: getQuestionId(question),
-            correctAnswerIndex,
+            correctAnswerIndices,
         },
     };
 }
