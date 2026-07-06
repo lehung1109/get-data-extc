@@ -29,7 +29,7 @@ export default async function HomePage() {
                             <strong>{exam.examCode}</strong>
                             <div>{exam.questionCount} questions available</div>
                             <Link href={`/exam/${exam.examCode}`} style={{ color: '#2563eb' }}>
-                                Start practice exam
+                                Configure exam
                             </Link>
                         </li>
                     ))}
