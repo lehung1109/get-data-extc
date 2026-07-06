@@ -57,6 +57,6 @@ export type {
     GenerateExamOptions,
 } from './exam/types';
 
-export { generateExam, toClientExam } from './exam/generate';
+export { generateExam, toClientExam, enrichClientExam, reconstructExam } from './exam/generate';
 export { scoreExam } from './exam/score';
 export { createSeededRandom, shuffleWithSeed, pickWithSeed } from './exam/random';

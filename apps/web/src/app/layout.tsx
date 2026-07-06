@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import './globals.css';
 
 export const metadata: Metadata = {
     title: 'ExamTopics Practice Exams',
@@ -8,8 +9,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="en">
-            <body style={{ fontFamily: 'system-ui, sans-serif', margin: 0, background: '#f8fafc', color: '#0f172a' }}>
-                <main style={{ maxWidth: 960, margin: '0 auto', padding: '2rem 1rem' }}>
+            <body className="m-0 bg-slate-50 font-sans text-slate-900">
+                <main className="mx-auto max-w-3xl px-4 py-8">
                     {children}
                 </main>
             </body>

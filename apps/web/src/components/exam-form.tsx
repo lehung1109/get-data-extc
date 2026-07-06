@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { ClientExam, ExamResult } from '@get-data-extc/sdk';
+import { ExamQuestionCard } from '@/components/exam-question-card';
 
 type ExamFormProps = {
     exam: ClientExam;
@@ -22,6 +23,20 @@ export function ExamForm({ exam }: ExamFormProps) {
     const [result, setResult] = useState<ExamResult | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [revealedAnswers, setRevealedAnswers] = useState<Set<string>>(() => new Set());
+    const [revealedComments, setRevealedComments] = useState<Set<string>>(() => new Set());
+
+    function toggleRevealed(set: Set<string>, questionId: string): Set<string> {
+        const next = new Set(set);
+
+        if (next.has(questionId)) {
+            next.delete(questionId);
+        } else {
+            next.add(questionId);
+        }
+
+        return next;
+    }
 
     async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -44,6 +59,8 @@ export function ExamForm({ exam }: ExamFormProps) {
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({
                     examId: exam.id,
+                    seed: exam.seed,
+                    questionCount: exam.questions.length,
                     answers,
                 }),
             });
@@ -62,55 +79,69 @@ export function ExamForm({ exam }: ExamFormProps) {
     }
 
     if (result) {
+        const resultByQuestionId = new Map(result.details.map((detail) => [detail.questionId, detail]));
+        const answerKeyByQuestionId = new Map(exam.answerKey.map((entry) => [entry.questionId, entry]));
+
         return (
-            <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '1rem' }}>
-                <h2>Result</h2>
-                <p>
-                    Score: <strong>{result.score}</strong> / {result.total} ({result.percentage}%)
-                </p>
-                <ol>
-                    {result.details.map((detail) => (
-                        <li key={detail.questionId} style={{ marginBottom: '0.5rem' }}>
-                            Question {detail.questionId}: {detail.correct ? 'Correct' : 'Incorrect'}
-                            {' '}
-                            ({detail.selectedAnswerIndices.length} selected, {detail.correctAnswerIndices.length} required)
-                        </li>
-                    ))}
-                </ol>
+            <section className="mt-6 grid gap-6">
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                    <h2 className="text-xl font-semibold">Result</h2>
+                    <p className="mt-2">
+                        Score: <strong>{result.score}</strong> / {result.total} ({result.percentage}%)
+                    </p>
+                </div>
+
+                {exam.questions.map((question, index) => {
+                    const detail = resultByQuestionId.get(question.id);
+
+                    return (
+                        <ExamQuestionCard
+                            key={question.id}
+                            question={question}
+                            index={index}
+                            answerKey={answerKeyByQuestionId.get(question.id)}
+                            showAnswer
+                            showComments={revealedComments.has(question.id)}
+                            onToggleComments={() => {
+                                setRevealedComments((current) => toggleRevealed(current, question.id));
+                            }}
+                            readOnly
+                            result={detail}
+                        />
+                    );
+                })}
             </section>
         );
     }
 
+    const answerKeyByQuestionId = new Map(exam.answerKey.map((entry) => [entry.questionId, entry]));
+
     return (
-        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '1.5rem' }}>
+        <form onSubmit={handleSubmit} className="mt-6 grid gap-6">
             {exam.questions.map((question, index) => (
-                <fieldset key={question.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '1rem' }}>
-                    <legend>
-                        Question {index + 1} (topic {question.topicNumber}, question {question.questionNumber})
-                    </legend>
-                    <p>{question.title}</p>
-                    {question.allowsMultipleAnswers ? (
-                        <p style={{ color: '#475569', fontSize: '0.875rem', marginTop: 0 }}>
-                            Select multiple answers
-                        </p>
-                    ) : null}
-                    {question.answers.map((answer, answerIndex) => (
-                        <label key={`${question.id}-${answerIndex}`} style={{ display: 'block', marginBottom: '0.5rem' }}>
-                            <input
-                                type={question.allowsMultipleAnswers ? 'checkbox' : 'radio'}
-                                name={question.id}
-                                value={answerIndex}
-                            />
-                            {' '}
-                            {answer.text}
-                        </label>
-                    ))}
-                </fieldset>
+                <ExamQuestionCard
+                    key={question.id}
+                    question={question}
+                    index={index}
+                    answerKey={answerKeyByQuestionId.get(question.id)}
+                    showAnswer={revealedAnswers.has(question.id)}
+                    showComments={revealedComments.has(question.id)}
+                    onToggleAnswer={() => {
+                        setRevealedAnswers((current) => toggleRevealed(current, question.id));
+                    }}
+                    onToggleComments={() => {
+                        setRevealedComments((current) => toggleRevealed(current, question.id));
+                    }}
+                />
             ))}
 
-            {error ? <p style={{ color: '#b91c1c' }}>{error}</p> : null}
+            {error ? <p className="text-red-700">{error}</p> : null}
 
-            <button type="submit" disabled={isSubmitting} style={{ width: 'fit-content', padding: '0.75rem 1rem' }}>
+            <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-fit rounded-md bg-slate-900 px-4 py-3 text-white disabled:opacity-50"
+            >
                 {isSubmitting ? 'Submitting...' : 'Submit exam'}
             </button>
         </form>

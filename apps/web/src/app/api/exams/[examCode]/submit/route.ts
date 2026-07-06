@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { scoreExam, type ExamSubmission } from '@get-data-extc/sdk';
+import { loadQuestions, reconstructExam, scoreExam, type ExamSubmission } from '@get-data-extc/sdk';
 import { ensureDataDir } from '@/lib/config';
-import { getStoredExam, removeExam } from '@/lib/exam-store';
 
 type RouteContext = {
     params: Promise<{ examCode: string }>;
@@ -12,19 +11,24 @@ export async function POST(request: Request, context: RouteContext) {
 
     const { examCode } = await context.params;
     const payload = await request.json() as ExamSubmission;
-    const exam = getStoredExam(payload.examId);
 
-    if (!exam) {
-        return NextResponse.json({ error: 'Exam session not found or expired.' }, { status: 404 });
-    }
-
-    if (exam.examCode !== examCode) {
-        return NextResponse.json({ error: 'Exam code does not match session.' }, { status: 400 });
+    if (!payload.seed || !Number.isInteger(payload.questionCount) || payload.questionCount < 1) {
+        return NextResponse.json({ error: 'Invalid exam submission payload.' }, { status: 400 });
     }
 
     try {
+        const questions = await loadQuestions(examCode);
+        const exam = reconstructExam(examCode, questions, payload);
+
+        if (exam.questions.length !== payload.questionCount) {
+            return NextResponse.json({ error: 'Question count does not match exam.' }, { status: 400 });
+        }
+
+        if (exam.examCode !== examCode) {
+            return NextResponse.json({ error: 'Exam code does not match session.' }, { status: 400 });
+        }
+
         const result = scoreExam(exam, payload);
-        removeExam(exam.id);
 
         return NextResponse.json(result);
     } catch (error) {

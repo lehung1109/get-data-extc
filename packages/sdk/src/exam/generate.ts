@@ -1,6 +1,6 @@
 import type { Question } from '../types';
 import { pickWithSeed } from './random';
-import type { ClientExam, Exam, ExamAnswerKey, ExamQuestion, GenerateExamOptions } from './types';
+import type { ClientExam, Exam, ExamAnswerKey, ExamQuestion, ExamSubmission, GenerateExamOptions } from './types';
 
 function getQuestionId(question: Question) {
     return `${question.topicNumber}-${question.questionNumber}`;
@@ -30,6 +30,7 @@ function toExamQuestion(question: Question, seed: string): { examQuestion: ExamQ
             title: question.title,
             allowsMultipleAnswers: correctAnswerIndices.length > 1,
             answers: shuffled.map(({ text }) => ({ text })),
+            comments: [],
         },
         answerKey: {
             questionId: getQuestionId(question),
@@ -65,11 +66,45 @@ export function generateExam(options: GenerateExamOptions): Exam {
     };
 }
 
+export function reconstructExam(
+    examCode: string,
+    questions: Question[],
+    submission: Pick<ExamSubmission, 'examId' | 'seed' | 'questionCount'>,
+): Exam {
+    return generateExam({
+        examCode,
+        questions,
+        questionCount: submission.questionCount,
+        seed: submission.seed,
+        examId: submission.examId,
+    });
+}
+
 export function toClientExam(exam: Exam): ClientExam {
     return {
         id: exam.id,
         examCode: exam.examCode,
         seed: exam.seed,
         questions: exam.questions,
+        answerKey: exam.answerKey,
+    };
+}
+
+export function enrichClientExam(exam: Exam, sourceQuestions: Question[]): ClientExam {
+    const sourceById = new Map(
+        sourceQuestions.map((question) => [getQuestionId(question), question]),
+    );
+
+    return {
+        ...toClientExam(exam),
+        questions: exam.questions.map((question) => {
+            const source = sourceById.get(question.id);
+
+            return {
+                ...question,
+                comments: source?.comments ?? [],
+                url: source?.url,
+            };
+        }),
     };
 }

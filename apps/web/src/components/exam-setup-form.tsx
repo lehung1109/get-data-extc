@@ -11,13 +11,13 @@ export function ExamSetupForm({ examCode, maxQuestions, defaultCount, invalidCou
     return (
         <section>
             <p>
-                <Link href="/">Back to exams</Link>
+                <Link href="/" className="text-blue-600 hover:underline">Back to exams</Link>
             </p>
-            <h1>Exam: {examCode}</h1>
-            <p>{maxQuestions} questions available</p>
+            <h1 className="text-2xl font-semibold">Exam: {examCode}</h1>
+            <p className="text-slate-600">{maxQuestions} questions available</p>
 
             {invalidCount !== undefined ? (
-                <p style={{ color: '#b91c1c' }}>
+                <p className="text-red-700">
                     Invalid question count. Enter a number between 1 and {maxQuestions}.
                 </p>
             ) : null}
@@ -25,9 +25,9 @@ export function ExamSetupForm({ examCode, maxQuestions, defaultCount, invalidCou
             <form
                 method="GET"
                 action={`/exam/${examCode}`}
-                style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '1rem', display: 'grid', gap: '1rem', maxWidth: 320 }}
+                className="mt-4 grid max-w-xs gap-4 rounded-lg border border-slate-200 bg-white p-4"
             >
-                <label style={{ display: 'grid', gap: '0.5rem' }}>
+                <label className="grid gap-2">
                     Number of questions
                     <input
                         type="number"
@@ -36,11 +36,14 @@ export function ExamSetupForm({ examCode, maxQuestions, defaultCount, invalidCou
                         max={maxQuestions}
                         defaultValue={defaultCount}
                         required
-                        style={{ padding: '0.5rem' }}
+                        className="rounded-md border border-slate-300 p-2"
                     />
                 </label>
 
-                <button type="submit" style={{ width: 'fit-content', padding: '0.75rem 1rem' }}>
+                <button
+                    type="submit"
+                    className="w-fit rounded-md bg-slate-900 px-4 py-3 text-white"
+                >
                     Start exam
                 </button>
             </form>

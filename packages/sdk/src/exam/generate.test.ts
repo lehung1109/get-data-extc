@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { Question } from '../types';
-import { generateExam, toClientExam } from './generate';
+import { enrichClientExam, generateExam, reconstructExam, toClientExam } from './generate';
 import { pickWithSeed, shuffleWithSeed } from './random';
 import { scoreExam } from './score';
 
@@ -90,7 +90,7 @@ describe('generateExam', () => {
 
         expect(first).toEqual(second);
         expect(first.questions).toHaveLength(2);
-        expect(toClientExam(first)).not.toHaveProperty('answerKey');
+        expect(toClientExam(first).answerKey).toEqual(first.answerKey);
     });
 
     test('rejects empty pools for an exam code', () => {
@@ -120,6 +120,61 @@ describe('generateExam', () => {
     });
 });
 
+describe('reconstructExam', () => {
+    test('recreates the same exam from submission metadata', () => {
+        const original = generateExam({
+            examCode: 'gh-300',
+            questions: sampleQuestions,
+            questionCount: 2,
+            seed: 'reconstruct-seed',
+            examId: 'exam-reconstruct',
+        });
+
+        const reconstructed = reconstructExam('gh-300', sampleQuestions, {
+            examId: original.id,
+            seed: original.seed,
+            questionCount: original.questions.length,
+        });
+
+        expect(reconstructed).toEqual(original);
+    });
+});
+
+describe('enrichClientExam', () => {
+    test('attaches comments and url from source questions', () => {
+        const questionsWithComments: Question[] = [
+            {
+                ...sampleQuestions[0]!,
+                url: 'https://example.test/enriched',
+                comments: [{
+                    author: 'alice',
+                    date: '2026-01-01',
+                    commentSelectedAnswer: 'Selected Answer: B',
+                    commentContent: 'Looks correct.',
+                }],
+            },
+            sampleQuestions[1]!,
+            sampleQuestions[2]!,
+        ];
+
+        const exam = generateExam({
+            examCode: 'gh-300',
+            questions: questionsWithComments,
+            questionCount: 3,
+            seed: 'enrich-seed',
+            examId: 'exam-enrich',
+        });
+
+        const clientExam = enrichClientExam(exam, questionsWithComments);
+        const enrichedQuestion = clientExam.questions.find((question) => question.id === '1-1');
+
+        expect(clientExam.answerKey).toEqual(exam.answerKey);
+        expect(enrichedQuestion?.url).toBe('https://example.test/enriched');
+        expect(enrichedQuestion?.comments).toHaveLength(1);
+        expect(enrichedQuestion?.comments[0]?.author).toBe('alice');
+    });
+});
+
 describe('scoreExam', () => {
     test('scores submissions against the answer key', () => {
         const exam = generateExam({
@@ -132,6 +187,8 @@ describe('scoreExam', () => {
 
         const result = scoreExam(exam, {
             examId: exam.id,
+            seed: exam.seed,
+            questionCount: exam.questions.length,
             answers: exam.questions.map((question) => {
                 const key = exam.answerKey.find((entry) => entry.questionId === question.id);
 
@@ -160,6 +217,8 @@ describe('scoreExam', () => {
 
         const perfectResult = scoreExam(exam, {
             examId: exam.id,
+            seed: exam.seed,
+            questionCount: exam.questions.length,
             answers: [{
                 questionId: exam.questions[0]?.id ?? '',
                 selectedAnswerIndices: answerKey,
@@ -169,6 +228,8 @@ describe('scoreExam', () => {
 
         const partialResult = scoreExam(exam, {
             examId: exam.id,
+            seed: exam.seed,
+            questionCount: exam.questions.length,
             answers: [{
                 questionId: exam.questions[0]?.id ?? '',
                 selectedAnswerIndices: answerKey.slice(0, 1),
@@ -178,6 +239,8 @@ describe('scoreExam', () => {
 
         const extraResult = scoreExam(exam, {
             examId: exam.id,
+            seed: exam.seed,
+            questionCount: exam.questions.length,
             answers: [{
                 questionId: exam.questions[0]?.id ?? '',
                 selectedAnswerIndices: [...answerKey, (answerKey[0] ?? 0) + 1],
@@ -197,6 +260,8 @@ describe('scoreExam', () => {
 
         expect(() => scoreExam(exam, {
             examId: 'exam-b',
+            seed: exam.seed,
+            questionCount: exam.questions.length,
             answers: [],
         })).toThrow('Submission examId does not match exam.');
     });

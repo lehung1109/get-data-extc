@@ -9,6 +9,8 @@ export type ExamQuestion = {
     title: string;
     allowsMultipleAnswers: boolean;
     answers: ExamAnswerOption[];
+    comments: import('../types').QuestionComment[];
+    url?: string;
 };
 
 export type ExamAnswerKey = {
@@ -31,6 +33,8 @@ export type ExamSubmissionAnswer = {
 
 export type ExamSubmission = {
     examId: string;
+    seed: string;
+    questionCount: number;
     answers: ExamSubmissionAnswer[];
 };
 
@@ -57,4 +61,6 @@ export type GenerateExamOptions = {
     examId?: string;
 };
 
-export type ClientExam = Pick<Exam, 'id' | 'examCode' | 'seed' | 'questions'>;
+export type ClientExam = Pick<Exam, 'id' | 'examCode' | 'seed' | 'questions'> & {
+    answerKey: ExamAnswerKey[];
+};

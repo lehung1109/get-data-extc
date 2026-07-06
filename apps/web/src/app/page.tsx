@@ -17,18 +17,20 @@ export default async function HomePage() {
 
     return (
         <section>
-            <h1>Practice Exams</h1>
-            <p>Select an exam code to generate a practice test from local question data.</p>
+            <h1 className="text-2xl font-semibold">Practice Exams</h1>
+            <p className="mt-2 text-slate-600">Select an exam code to generate a practice test from local question data.</p>
 
             {availableExams.length === 0 ? (
-                <p>No exams with questions.json were found. Run the crawler first to populate <code>data/&lt;examCode&gt;/questions.json</code>.</p>
+                <p className="mt-4">
+                    No exams with questions.json were found. Run the crawler first to populate <code>data/&lt;examCode&gt;/questions.json</code>.
+                </p>
             ) : (
-                <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: '1rem' }}>
+                <ul className="mt-6 grid list-none gap-4 p-0">
                     {availableExams.map((exam) => (
-                        <li key={exam.examCode} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '1rem' }}>
+                        <li key={exam.examCode} className="rounded-lg border border-slate-200 bg-white p-4">
                             <strong>{exam.examCode}</strong>
-                            <div>{exam.questionCount} questions available</div>
-                            <Link href={`/exam/${exam.examCode}`} style={{ color: '#2563eb' }}>
+                            <div className="text-slate-600">{exam.questionCount} questions available</div>
+                            <Link href={`/exam/${exam.examCode}`} className="text-blue-600 hover:underline">
                                 Configure exam
                             </Link>
                         </li>

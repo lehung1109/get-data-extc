@@ -1,7 +1,6 @@
 import Link from 'next/link';
-import { generateExam, loadQuestions, toClientExam } from '@get-data-extc/sdk';
+import { enrichClientExam, generateExam, loadQuestions } from '@get-data-extc/sdk';
 import { DEFAULT_QUESTION_COUNT, ensureDataDir } from '@/lib/config';
-import { storeExam } from '@/lib/exam-store';
 import { ExamForm } from '@/components/exam-form';
 import { ExamSetupForm } from '@/components/exam-setup-form';
 
@@ -41,19 +40,17 @@ export default async function ExamPage({ params, searchParams }: ExamPageProps) 
         seed,
     });
 
-    storeExam(exam);
-
-    const clientExam = toClientExam(exam);
+    const clientExam = enrichClientExam(exam, questions);
 
     return (
         <section>
             <p>
-                <Link href="/">Back to exams</Link>
+                <Link href="/" className="text-blue-600 hover:underline">Back to exams</Link>
                 {' · '}
-                <Link href={`/exam/${examCode}`}>Change question count</Link>
+                <Link href={`/exam/${examCode}`} className="text-blue-600 hover:underline">Change question count</Link>
             </p>
-            <h1>Exam: {examCode}</h1>
-            <p>{clientExam.questions.length} questions · seed {clientExam.seed}</p>
+            <h1 className="text-2xl font-semibold">Exam: {examCode}</h1>
+            <p className="text-slate-600">{clientExam.questions.length} questions · seed {clientExam.seed}</p>
             <ExamForm exam={clientExam} />
         </section>
     );
