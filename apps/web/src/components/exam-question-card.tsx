@@ -81,6 +81,10 @@ export function ExamQuestionCard({
 }: ExamQuestionCardProps) {
     const correctAnswerIndices = answerKey?.correctAnswerIndices ?? result?.correctAnswerIndices ?? [];
     const effectiveSelected = result?.selectedAnswerIndices ?? selectedAnswerIndices;
+    const questionCardClassName =
+        readOnly && result && !result.correct
+            ? 'rounded-lg border-2 border-red-500 bg-white p-4'
+            : 'rounded-lg border border-slate-200 bg-white p-4';
     const [localSelected, setLocalSelected] = useState<number[]>(effectiveSelected);
 
     useEffect(() => {
@@ -107,7 +111,7 @@ export function ExamQuestionCard({
     }
 
     return (
-        <fieldset className="rounded-lg border border-slate-200 bg-white p-4">
+        <fieldset className={questionCardClassName}>
             <legend className="flex flex-wrap items-center gap-2 px-1">
                 <span>
                     Question {index + 1} (topic {question.topicNumber}, question {question.questionNumber})

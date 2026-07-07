@@ -4,9 +4,9 @@ import { useState } from 'react';
 import type { ClientExam, ExamResult } from '@get-data-extc/sdk';
 import { ExamQuestionCard } from '@/components/exam-question-card';
 
-type ExamFormProps = {
+type ExamFormProps = Readonly<{
     exam: ClientExam;
-};
+}>;
 
 function parseSelectedAnswerIndices(formData: FormData, questionId: string, allowsMultipleAnswers: boolean): number[] {
     const rawValues = allowsMultipleAnswers
@@ -21,6 +21,7 @@ function parseSelectedAnswerIndices(formData: FormData, questionId: string, allo
 
 export function ExamForm({ exam }: ExamFormProps) {
     const [result, setResult] = useState<ExamResult | null>(null);
+    const [isResultModalOpen, setIsResultModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [revealedAnswers, setRevealedAnswers] = useState<Set<string>>(() => new Set());
@@ -38,7 +39,7 @@ export function ExamForm({ exam }: ExamFormProps) {
         return next;
     }
 
-    async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    async function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
         event.preventDefault();
         setIsSubmitting(true);
         setError(null);
@@ -70,7 +71,9 @@ export function ExamForm({ exam }: ExamFormProps) {
                 throw new Error(typeof payload.error === 'string' ? payload.error : 'Failed to submit exam.');
             }
 
-            setResult(await response.json());
+            const nextResult: ExamResult = await response.json();
+            setResult(nextResult);
+            setIsResultModalOpen(true);
         } catch (submitError) {
             setError(submitError instanceof Error ? submitError.message : 'Failed to submit exam.');
         } finally {
@@ -84,12 +87,32 @@ export function ExamForm({ exam }: ExamFormProps) {
 
         return (
             <section className="mt-6 grid gap-6">
-                <div className="rounded-lg border border-slate-200 bg-white p-4">
-                    <h2 className="text-xl font-semibold">Result</h2>
-                    <p className="mt-2">
-                        Score: <strong>{result.score}</strong> / {result.total} ({result.percentage}%)
-                    </p>
-                </div>
+                {isResultModalOpen ? (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                        <dialog
+                            open
+                            aria-labelledby="exam-result-title"
+                            className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl"
+                        >
+                            <h2 id="exam-result-title" className="text-2xl font-bold text-slate-900">
+                                Exam Result
+                            </h2>
+                            <p className="mt-3 text-lg text-slate-700">
+                                Score: <strong>{result.score}</strong> / {result.total}
+                            </p>
+                            <p className="mt-1 text-3xl font-semibold text-slate-900">{result.percentage}%</p>
+                            <button
+                                type="button"
+                                className="mt-5 w-full rounded-md bg-slate-900 px-4 py-2 text-white hover:bg-slate-800"
+                                onClick={() => {
+                                    setIsResultModalOpen(false);
+                                }}
+                            >
+                                View reviewed questions
+                            </button>
+                        </dialog>
+                    </div>
+                ) : null}
 
                 {exam.questions.map((question, index) => {
                     const detail = resultByQuestionId.get(question.id);
