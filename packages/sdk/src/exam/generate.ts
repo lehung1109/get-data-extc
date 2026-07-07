@@ -29,6 +29,7 @@ function toExamQuestion(question: Question, seed: string): { examQuestion: ExamQ
             questionNumber: question.questionNumber,
             title: question.title,
             allowsMultipleAnswers: correctAnswerIndices.length > 1,
+            maxSelectableAnswers: correctAnswerIndices.length,
             answers: shuffled.map(({ text }) => ({ text })),
             comments: [],
         },

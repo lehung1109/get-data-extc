@@ -115,8 +115,24 @@ describe('generateExam', () => {
         const answerKey = exam.answerKey[0];
 
         expect(question?.allowsMultipleAnswers).toBe(true);
+        expect(question?.maxSelectableAnswers).toBe(2);
         expect(answerKey?.correctAnswerIndices).toHaveLength(2);
         expect(answerKey?.correctAnswerIndices.every((index) => question?.answers[index])).toBe(true);
+    });
+
+    test('sets maxSelectableAnswers to one for single-answer questions', () => {
+        const exam = generateExam({
+            examCode: 'gh-300',
+            questions: [sampleQuestions[0]!],
+            questionCount: 1,
+            seed: 'single-seed',
+            examId: 'exam-single',
+        });
+
+        const question = exam.questions[0];
+
+        expect(question?.allowsMultipleAnswers).toBe(false);
+        expect(question?.maxSelectableAnswers).toBe(1);
     });
 });
 

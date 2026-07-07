@@ -1,8 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { ExamAnswerKey, ExamQuestion, ExamQuestionResult } from '@get-data-extc/sdk';
 
-type ExamQuestionCardProps = {
+type ExamQuestionCardProps = Readonly<{
     question: ExamQuestion;
     index: number;
     answerKey: ExamAnswerKey | undefined;
@@ -13,7 +14,37 @@ type ExamQuestionCardProps = {
     onToggleComments?: () => void;
     readOnly?: boolean;
     result?: ExamQuestionResult;
-};
+}>;
+
+function getNextSelectedAnswers(
+    previous: number[],
+    answerIndex: number,
+    checked: boolean,
+    maxSelectableAnswers: number,
+): number[] {
+    if (checked) {
+        if (previous.includes(answerIndex) || previous.length >= maxSelectableAnswers) {
+            return previous;
+        }
+
+        return [...previous, answerIndex];
+    }
+
+    return previous.filter((index) => index !== answerIndex);
+}
+
+function shouldDisableAnswerInput(
+    readOnly: boolean,
+    allowsMultipleAnswers: boolean,
+    reachedSelectionLimit: boolean,
+    isSelected: boolean,
+): boolean {
+    if (readOnly) {
+        return true;
+    }
+
+    return allowsMultipleAnswers && reachedSelectionLimit && !isSelected;
+}
 
 function getAnswerHighlightClass(
     answerIndex: number,
@@ -50,6 +81,30 @@ export function ExamQuestionCard({
 }: ExamQuestionCardProps) {
     const correctAnswerIndices = answerKey?.correctAnswerIndices ?? result?.correctAnswerIndices ?? [];
     const effectiveSelected = result?.selectedAnswerIndices ?? selectedAnswerIndices;
+    const [localSelected, setLocalSelected] = useState<number[]>(effectiveSelected);
+
+    useEffect(() => {
+        setLocalSelected(effectiveSelected);
+    }, [effectiveSelected]);
+
+    const currentSelected = readOnly ? effectiveSelected : localSelected;
+    const reachedSelectionLimit =
+        question.allowsMultipleAnswers && currentSelected.length >= question.maxSelectableAnswers;
+
+    function handleChoiceChange(answerIndex: number, checked: boolean) {
+        if (readOnly) {
+            return;
+        }
+
+        if (!question.allowsMultipleAnswers) {
+            setLocalSelected(checked ? [answerIndex] : []);
+            return;
+        }
+
+        setLocalSelected((previous) => {
+            return getNextSelectedAnswers(previous, answerIndex, checked, question.maxSelectableAnswers);
+        });
+    }
 
     return (
         <fieldset className="rounded-lg border border-slate-200 bg-white p-4">
@@ -81,7 +136,7 @@ export function ExamQuestionCard({
             ) : null}
 
             {question.allowsMultipleAnswers ? (
-                <p className="mt-1 text-sm text-slate-600">Select multiple answers</p>
+                <p className="mt-1 text-sm text-slate-600">Select up to {question.maxSelectableAnswers} answers</p>
             ) : null}
 
             <div className="mt-3 flex flex-wrap gap-2">
@@ -120,8 +175,16 @@ export function ExamQuestionCard({
                             type={question.allowsMultipleAnswers ? 'checkbox' : 'radio'}
                             name={question.id}
                             value={answerIndex}
-                            disabled={readOnly}
-                            defaultChecked={effectiveSelected.includes(answerIndex)}
+                            disabled={shouldDisableAnswerInput(
+                                readOnly,
+                                question.allowsMultipleAnswers,
+                                reachedSelectionLimit,
+                                currentSelected.includes(answerIndex),
+                            )}
+                            checked={currentSelected.includes(answerIndex)}
+                            onChange={(event) => {
+                                handleChoiceChange(answerIndex, event.currentTarget.checked);
+                            }}
                             className="mr-2"
                         />
                         {answer.text}

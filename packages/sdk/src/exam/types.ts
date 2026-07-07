@@ -8,6 +8,7 @@ export type ExamQuestion = {
     questionNumber: number;
     title: string;
     allowsMultipleAnswers: boolean;
+    maxSelectableAnswers: number;
     answers: ExamAnswerOption[];
     comments: import('../types').QuestionComment[];
     url?: string;
